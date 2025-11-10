@@ -49,29 +49,11 @@ const LiveStream = ({ streamId }) => {
       e.preventDefault();
       e.returnValue = '';
     };
-    const guardNav = () => {
-      if (navBlockRef.current) return;
-      const ok = window.confirm('Yayını sona erdireceksiniz. Emin misiniz?');
-      if (!ok) {
-        navBlockRef.current = true;
-        // iptal: aynı sayfada kal
-        history.pushState(null, '', window.location.href);
-        setTimeout(() => (navBlockRef.current = false), 100);
-      } else if (streamData?.id) {
-        supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
-      }
-    };
     window.addEventListener('beforeunload', beforeUnload);
-    window.addEventListener('popstate', guardNav);
-    window.addEventListener('hashchange', guardNav);
-    // Geri tuşunu yakalamak için ekstra bir state push
-    history.pushState(null, '', window.location.href);
     return () => {
       window.removeEventListener('beforeunload', beforeUnload);
-      window.removeEventListener('popstate', guardNav);
-      window.removeEventListener('hashchange', guardNav);
     };
-  }, [isPublisher, isStreaming, streamData?.id]);
+  }, [isPublisher, isStreaming]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
