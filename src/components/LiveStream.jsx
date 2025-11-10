@@ -495,11 +495,19 @@ const LiveStream = ({ streamId }) => {
           )}
           
           {isStreaming && isPublisher && (
-            <div className="absolute top-4 left-4 flex gap-2">
-               <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
-               <Button onClick={endStreamManually} size="icon" className="rounded-full bg-red-500/80 backdrop-blur-sm hover:bg-red-600/80"><VideoOff /></Button>
-               <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
-            </div>
+            <>
+              <div className="absolute top-4 left-4 flex gap-2">
+                <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
+                <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
+              </div>
+              {/* Büyük ve belirgin Yayını Bitir butonu */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+                <Button onClick={endStreamManually} size="lg" className="rounded-full bg-red-600 text-white px-8 py-6 text-xl font-bold shadow-lg hover:bg-red-700">
+                  <VideoOff className="w-7 h-7 mr-3" />
+                  Yayını Bitir
+                </Button>
+              </div>
+            </>
           )}
 
           {/* İzleyici ses açma */}
