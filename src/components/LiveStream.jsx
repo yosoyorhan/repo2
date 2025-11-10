@@ -108,6 +108,8 @@ const LiveStream = ({ streamId }) => {
           setStreamEnded(true);
           toast({ title: 'Yayın sona erdi.' });
           cleanup();
+        } else if (payload.new.status === 'active') {
+          setStreamEnded(false); // Yayın tekrar aktif olunca flag'i temizle
         }
         if (payload.new.status === 'inactive' && !isPublisher) {
           toast({ title: 'Yayın sona erdi.' });
@@ -388,6 +390,7 @@ const LiveStream = ({ streamId }) => {
         videoRef.current.muted = true;
       }
       setIsStreaming(true);
+      setStreamEnded(false); // Yayın başlayınca ended flag'ini temizle
       await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
       toast({ title: "🎥 Canlı yayın başladı!" });
       log('publisher started local preview (offers per viewer on request)');
