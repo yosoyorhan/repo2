@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { usePrompt } from '@/lib/usePrompt';
 import { motion } from 'framer-motion';
 import { Video, VideoOff, Mic, MicOff, Camera, Loader2, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,11 +7,6 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const LiveStream = ({ streamId }) => {
-  // Route değişiminde canlı yayıncıya uyarı göster
-  usePrompt(
-    isPublisher && isStreaming,
-    'Yayını sona erdireceksiniz. Emin misiniz?'
-  );
   const { toast } = useToast();
   const { user } = useAuth();
   const videoRef = useRef(null);
@@ -44,6 +38,35 @@ const LiveStream = ({ streamId }) => {
   const [requestRetries, setRequestRetries] = useState(0);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
+
+  // Route / sayfa değişiminde yayıncıyı uyarmak için hafif mekanizma
+  useEffect(() => {
+    if (!isPublisher || !isStreaming) return;
+    const beforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const popHandler = (e) => {
+      const ok = window.confirm('Yayını sona erdireceksiniz. Emin misiniz?');
+      if (!ok) {
+        // İptal: ileri bir state push ederek geri hareketi nötrle
+        history.pushState(null, '', window.location.href);
+      } else {
+        // Akış sonlandır
+        if (streamData?.id) {
+          supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
+        }
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    window.addEventListener('popstate', popHandler);
+    // Geri tuşunu yakalamak için ekstra bir state push
+    history.pushState(null, '', window.location.href);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      window.removeEventListener('popstate', popHandler);
+    };
+  }, [isPublisher, isStreaming, streamData?.id]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
