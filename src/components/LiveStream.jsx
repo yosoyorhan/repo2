@@ -12,16 +12,40 @@ const LiveStream = ({ streamId }) => {
   const videoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const streamRef = useRef(null);
+  const hlsRef = useRef(null);
+  const retryTimerRef = useRef(null);
 
   const [streamData, setStreamData] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewerMuted, setViewerMuted] = useState(true);
+
+  // Debug/diagnostic states
+  const [connState, setConnState] = useState('new');
+  const [sigState, setSigState] = useState('stable');
+  const [iceConnState, setIceConnState] = useState('new');
+  const [iceGatherState, setIceGatherState] = useState('new');
+  const [logs, setLogs] = useState([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const [hlsActive, setHlsActive] = useState(false);
+  const [requestRetries, setRequestRetries] = useState(0);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
   // Cleanup function
   const cleanup = useCallback(() => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch {}
+        hlsRef.current = null;
+        setHlsActive(false);
+      }
       if (videoRef.current && videoRef.current.srcObject) {
           videoRef.current.srcObject.getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
@@ -35,6 +59,13 @@ const LiveStream = ({ streamId }) => {
           peerConnectionRef.current = null;
       }
       setIsStreaming(false);
+      setRequestRetries(0);
+  }, []);
+
+  const log = useCallback((msg) => {
+    const line = `${new Date().toLocaleTimeString()} | ${msg}`;
+    setLogs(prev => [line, ...prev].slice(0, 200));
+    // console.log(line);
   }, []);
 
   useEffect(() => {
@@ -87,10 +118,32 @@ const LiveStream = ({ streamId }) => {
 
     const setupPeerConnection = () => {
         if (peerConnectionRef.current) return;
-        const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
+        const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+        const turnUrl = import.meta.env.VITE_TURN_URL;
+        const turnUser = import.meta.env.VITE_TURN_USERNAME;
+        const turnCred = import.meta.env.VITE_TURN_CREDENTIAL;
+        if (turnUrl && turnUser && turnCred) {
+          iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+        }
+        const pc = new RTCPeerConnection({ iceServers });
         peerConnectionRef.current = pc;
+
+        pc.onconnectionstatechange = () => {
+          setConnState(pc.connectionState);
+          log(`connectionState: ${pc.connectionState}`);
+        };
+        pc.onsignalingstatechange = () => {
+          setSigState(pc.signalingState);
+          log(`signalingState: ${pc.signalingState}`);
+        };
+        pc.oniceconnectionstatechange = () => {
+          setIceConnState(pc.iceConnectionState);
+          log(`iceConnectionState: ${pc.iceConnectionState}`);
+        };
+        pc.onicegatheringstatechange = () => {
+          setIceGatherState(pc.iceGatheringState);
+          log(`iceGatheringState: ${pc.iceGatheringState}`);
+        };
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
@@ -99,6 +152,7 @@ const LiveStream = ({ streamId }) => {
                     event: 'ice-candidate',
                     payload: { candidate: event.candidate },
                 });
+                log('sent ice-candidate');
             }
         };
 
@@ -106,6 +160,14 @@ const LiveStream = ({ streamId }) => {
             if (videoRef.current) {
                 videoRef.current.srcObject = event.streams[0];
                 setIsStreaming(true);
+                setViewerMuted(true); // autoplay için sessize al
+                // HLS aktifse kapat
+                if (hlsRef.current) {
+                  try { hlsRef.current.destroy(); } catch {}
+                  hlsRef.current = null;
+                  setHlsActive(false);
+                }
+                log('remote track received');
             }
         };
     };
@@ -123,13 +185,17 @@ const LiveStream = ({ streamId }) => {
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 signalingChannel.send({ type: 'broadcast', event: 'answer', payload: { answer } });
+                log('received offer -> sent answer');
             } else if (event === 'answer' && isPublisher) {
                 await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                log('publisher received answer');
             } else if (event === 'ice-candidate') {
                 await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                log('received ice-candidate');
             }
         } catch (error) {
             console.error("Signaling error:", error);
+            log(`signaling error: ${error?.message || error}`);
         }
     };
     
@@ -139,7 +205,19 @@ const LiveStream = ({ streamId }) => {
                    .subscribe(async (status) => {
                         if (status === 'SUBSCRIBED' && !isPublisher && streamData.status === 'active') {
                             // New viewer, request offer
-                             signalingChannel.send({ type: 'broadcast', event: 'request-offer', payload: { viewerId: user?.id || 'guest' } });
+                            signalingChannel.send({ type: 'broadcast', event: 'request-offer', payload: { viewerId: user?.id || 'guest' } });
+                            log('viewer subscribed -> request-offer sent');
+                            // Retry mekanizması: 5 sn içinde track gelmezse tekrar iste
+                            if (!retryTimerRef.current) {
+                              retryTimerRef.current = setTimeout(() => {
+                                if (!isStreaming && requestRetries < 3) {
+                                  setRequestRetries(prev => prev + 1);
+                                  signalingChannel.send({ type: 'broadcast', event: 'request-offer', payload: { viewerId: user?.id || 'guest' } });
+                                  log(`retry request-offer #${requestRetries + 1}`);
+                                  retryTimerRef.current = null;
+                                }
+                              }, 5000);
+                            }
                         }
                    });
     
@@ -150,6 +228,7 @@ const LiveStream = ({ streamId }) => {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
+                log('publisher created and sent offer');
             }
         }).subscribe();
     }
@@ -157,7 +236,46 @@ const LiveStream = ({ streamId }) => {
     return () => {
       supabase.removeChannel(signalingChannel);
     };
-  }, [streamData, isLoading, isPublisher, streamId, user]);
+  }, [streamData, isLoading, isPublisher, streamId, user, log, isStreaming, requestRetries]);
+
+  // HLS fallback (opsiyonel) - streamData.hls_url varsa ve izleyici ise
+  useEffect(() => {
+    const useHls = async () => {
+      if (!videoRef.current || !streamData?.hls_url || isPublisher || isStreaming) return;
+      try {
+        const video = videoRef.current;
+        const hlsUrl = streamData.hls_url;
+        // Native HLS desteği
+        if (video.canPlayType('application/vnd.apple.mpegURL')) {
+          video.src = hlsUrl;
+          await video.play().catch(() => {});
+          setHlsActive(true);
+          log('native HLS attached');
+          return;
+        }
+        // hls.js dinamik import
+        const { default: Hls } = await import('hls.js');
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hlsRef.current = hls;
+          hls.loadSource(hlsUrl);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(() => {});
+            setHlsActive(true);
+            log('hls.js attached');
+          });
+          hls.on(Hls.Events.ERROR, (_, data) => {
+            log(`hls error: ${data?.type || ''} | ${data?.details || ''}`);
+          });
+        }
+      } catch (e) {
+        log(`hls setup error: ${e?.message || e}`);
+      }
+    };
+    useHls();
+    // cleanup handled in general cleanup
+  }, [streamData?.hls_url, isPublisher, isStreaming, log]);
 
 
   const startStream = async () => {
@@ -191,6 +309,7 @@ const LiveStream = ({ streamId }) => {
       });
 
       toast({ title: "🎥 Canlı yayın başladı!" });
+      log('publisher created initial offer');
     } catch (error) {
       toast({ title: "❌ İzin gerekli", description: "Kamera ve mikrofon izni vermelisiniz!", variant: "destructive" });
     }
@@ -215,6 +334,25 @@ const LiveStream = ({ streamId }) => {
       }
     }
   };
+
+  const toggleViewerMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !viewerMuted;
+      setViewerMuted(!viewerMuted);
+    }
+  };
+  
+  const reconnect = () => {
+    // İzleyici için yeniden bağlanma
+    if (isPublisher) return;
+    cleanup();
+    setTimeout(() => {
+      setRequestRetries(0);
+      setIsStreaming(false);
+      setViewerMuted(true);
+      // state değişimleri yeni effect'i tetikleyecek
+    }, 50);
+  };
     
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -238,6 +376,7 @@ const LiveStream = ({ streamId }) => {
             ref={videoRef}
             autoPlay
             playsInline
+            muted={isPublisher || viewerMuted}
             className="w-full h-full object-cover"
           />
 
@@ -267,6 +406,37 @@ const LiveStream = ({ streamId }) => {
                <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
             </div>
           )}
+
+          {/* İzleyici ses açma */}
+          {isStreaming && !isPublisher && viewerMuted && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+              <Button onClick={toggleViewerMute} size="sm" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">Sesi Aç</Button>
+            </div>
+          )}
+
+          {/* İzleyici için yeniden bağlanma butonu */}
+          {!isPublisher && streamData?.status === 'active' && !isStreaming && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Button onClick={reconnect} className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">Bağlantıyı Yeniden Dene</Button>
+            </div>
+          )}
+
+          {/* Diagnostik panel */}
+          <div className="absolute top-4 right-4 text-xs text-white/90 bg-black/40 rounded-md p-2 space-y-1">
+            <div><span className="opacity-70">signaling:</span> {sigState}</div>
+            <div><span className="opacity-70">conn:</span> {connState}</div>
+            <div><span className="opacity-70">ice:</span> {iceConnState} / {iceGatherState}</div>
+            <div><span className="opacity-70">mode:</span> {isPublisher ? 'publisher' : 'viewer'}{hlsActive ? ' + HLS' : ''}</div>
+            <div className="flex gap-2">
+              <Button size="xs" variant="secondary" onClick={() => setShowLogs(s => !s)}>Loglar</Button>
+              {!isPublisher && <Button size="xs" variant="secondary" onClick={reconnect}>Yeniden Bağlan</Button>}
+            </div>
+            {showLogs && (
+              <div className="mt-2 max-h-40 overflow-auto bg-black/50 p-2 rounded">
+                {logs.slice(0,30).map((l, i) => (<div key={i} className="whitespace-pre-wrap opacity-90">{l}</div>))}
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
