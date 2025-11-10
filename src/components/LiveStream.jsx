@@ -124,24 +124,26 @@ const LiveStream = ({ streamId }) => {
     };
   }, [streamId, toast, isPublisher, cleanup]);
 
-  // Publisher sayfa kapanınca yayını bitir
-  useEffect(() => {
-    if (!isPublisher || !streamData?.id) return;
-    const endStream = async () => {
-      await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
-    };
-    const handleUnload = () => { endStream(); };
-    window.addEventListener('beforeunload', handleUnload);
-    window.addEventListener('pagehide', handleUnload);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') endStream();
-    });
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      window.removeEventListener('pagehide', handleUnload);
-      document.removeEventListener('visibilitychange', () => {});
-    };
-  }, [isPublisher, streamData?.id]);
+  // Publisher sayfa kapanınca yayını bitir (devre dışı - manuel bitirme tercih edildi)
+  // useEffect(() => {
+  //   if (!isPublisher || !streamData?.id || !isStreaming) return;
+  //   
+  //   const endStream = async () => {
+  //     await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
+  //   };
+  //   
+  //   const handleBeforeUnload = (e) => {
+  //     endStream();
+  //     e.preventDefault();
+  //     e.returnValue = '';
+  //   };
+  //   
+  //   window.addEventListener('beforeunload', handleBeforeUnload);
+  //   
+  //   return () => {
+  //     window.removeEventListener('beforeunload', handleBeforeUnload);
+  //   };
+  // }, [isPublisher, streamData?.id, isStreaming]);
 
   // Yayını Bitir butonu
   const endStreamManually = async () => {
