@@ -34,11 +34,23 @@ VITE_TURN_CREDENTIAL=password
 
 # Opsiyonel: Debug modu
 VITE_DEBUG_STREAM=false
+
+# Supabase Management API (migrations için)
+SUPABASE_ACCESS_TOKEN=your_access_token
 ```
 
 ### 🗄️ Database Kurulumu
 
+#### Otomatik Migration (Önerilen)
+
+```bash
+npm run migrate
+```
+
+#### Manuel Migration
+
 Supabase SQL Editor'de aşağıdaki migration'ı çalıştırın:
+https://supabase.com/dashboard/project/djxukpbhlbomtvxejxtl/sql
 
 ```sql
 -- supabase-migration-orientation.sql
@@ -57,6 +69,9 @@ npm run dev
 
 # Production build
 npm run build
+
+# Run migrations
+npm run migrate
 
 # Preview
 npm run preview
