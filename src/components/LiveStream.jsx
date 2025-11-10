@@ -80,18 +80,17 @@ const LiveStream = ({ streamId }) => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('streams')
-        .select('*')
+        .select('id, user_id, title, status, stream_url, created_at, updated_at')
         .eq('id', streamId)
         .single();
-      
       if (error || !data) {
         toast({ title: 'Yayın bulunamadı!', variant: 'destructive' });
         setIsLoading(false);
         return;
       }
-  setStreamData(data);
-  setIsLoading(false);
-  if (data.status === 'ended') setStreamEnded(true);
+      setStreamData(data);
+      setIsLoading(false);
+      if (data.status === 'ended') setStreamEnded(true);
     };
 
     fetchStreamData();
@@ -368,22 +367,27 @@ const LiveStream = ({ streamId }) => {
     if (!isPublisher) return;
 
     try {
+      // Aynı user için aktif stream var mı kontrol et
+      const { data: activeStreams, error: activeError } = await supabase
+        .from('streams')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1);
+      if (activeStreams && activeStreams.length > 0) {
+        toast({ title: 'Zaten aktif bir yayının var!', variant: 'destructive' });
+        return;
+      }
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = mediaStream;
-      
-      // Publisher yerel önizleme için yalnızca video elementine set ediyor.
-      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.muted = true; // Mute self-view
+        videoRef.current.muted = true;
       }
-
       setIsStreaming(true);
-      
-  await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
-
+      await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
       toast({ title: "🎥 Canlı yayın başladı!" });
-  log('publisher started local preview (offers per viewer on request)');
+      log('publisher started local preview (offers per viewer on request)');
     } catch (error) {
       toast({ title: "❌ İzin gerekli", description: "Kamera ve mikrofon izni vermelisiniz!", variant: "destructive" });
     }
