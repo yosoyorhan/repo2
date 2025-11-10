@@ -14,52 +14,56 @@ const PROJECT_REF = 'djxukpbhlbomtvxejxtl';
 
 async function runMigration() {
   try {
-    console.log('🔄 Running database migration via Supabase Management API...\n');
+    console.log('🔄 Running database migrations via Supabase Management API...\n');
     
-    // Read migration file
-    const migrationPath = join(__dirname, '..', 'supabase-migration-orientation.sql');
-    const sql = readFileSync(migrationPath, 'utf8');
+    // Migration files to run
+    const migrations = [
+      'supabase-migration-orientation.sql',
+      'supabase-migration-profile-enhancements.sql'
+    ];
     
-    console.log('📄 Migration SQL:');
-    console.log(sql);
-    console.log('\n🚀 Executing...\n');
-    
-    // Execute SQL via Management API
-    const response = await fetch(
-      `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: sql
-        })
+    for (const migrationFile of migrations) {
+      console.log(`\n📄 Running: ${migrationFile}`);
+      console.log('─'.repeat(60));
+      
+      const migrationPath = join(__dirname, '..', migrationFile);
+      const sql = readFileSync(migrationPath, 'utf8');
+      
+      console.log(sql.substring(0, 200) + '...\n');
+      console.log('🚀 Executing...\n');
+      
+      // Execute SQL via Management API
+      const response = await fetch(
+        `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: sql
+          })
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error(`❌ Migration ${migrationFile} failed:`, result);
+        console.log('\n📝 Please run this SQL manually in Supabase SQL Editor:');
+        console.log(`https://supabase.com/dashboard/project/${PROJECT_REF}/sql\n`);
+        console.log(sql);
+        continue;
       }
-    );
-    
-    const result = await response.json();
-    
-    if (!response.ok) {
-      console.error('❌ Migration failed:', result);
-      console.log('\n📝 Please run this SQL manually in Supabase SQL Editor:');
-      console.log(`https://supabase.com/dashboard/project/${PROJECT_REF}/sql\n`);
-      console.log(sql);
-      process.exit(1);
+      
+      console.log(`✅ ${migrationFile} completed successfully!`);
     }
     
-    console.log('✅ Migration completed successfully!');
-    console.log('📊 Result:', JSON.stringify(result, null, 2));
+    console.log('\n🎉 All migrations completed!');
     
   } catch (err) {
     console.error('❌ Error:', err.message);
-    console.log('\n📝 Please run this SQL manually in Supabase SQL Editor:');
-    console.log(`https://supabase.com/dashboard/project/${PROJECT_REF}/sql\n`);
-    
-    const migrationPath = join(__dirname, '..', 'supabase-migration-orientation.sql');
-    const sql = readFileSync(migrationPath, 'utf8');
-    console.log(sql);
     process.exit(1);
   }
 }

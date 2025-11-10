@@ -12,6 +12,8 @@ WebRTC tabanlı canlı yayın ve alışveriş platformu.
 - **Kamera Değiştirme**: Ön/arka kamera geçişi
 - **Realtime Chat**: Supabase ile anlık mesajlaşma
 - **Mobil Uyumlu**: Responsive tasarım ve touch-friendly kontroller
+- **Kullanıcı Profilleri**: Bio, sosyal medya linkleri, takipçi sistemi
+- **Takip Sistemi**: Diğer kullanıcıları takip et/bırak
 
 ### 📦 Kurulum
 

@@ -6,6 +6,7 @@ import AuthModal from '@/components/AuthModal';
 import LiveStreamPage from '@/pages/LiveStreamPage';
 import HomePage from '@/pages/HomePage';
 import StreamsPage from '@/pages/StreamsPage';
+import ProfilePage from '@/pages/ProfilePage';
 
 function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -23,6 +24,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/streams" element={<StreamsPage />} />
             <Route path="/live/:streamId" element={<LiveStreamPage />} />
+            <Route path="/profile/:userId" element={<ProfilePage />} />
           </Routes>
         </main>
         <AuthModal isOpen={isAuthModalOpen} setIsOpen={setIsAuthModalOpen} />

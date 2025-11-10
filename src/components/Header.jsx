@@ -69,6 +69,10 @@ const Header = ({ onAuthClick }) => {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate(`/profile/${user.id}`)}>
+                <UserCircle className="mr-2 h-4 w-4" />
+                <span>Profilim</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/streams')}>
                 <Video className="mr-2 h-4 w-4" />
                 <span>Yayınlarım</span>
