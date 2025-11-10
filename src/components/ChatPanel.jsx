@@ -79,18 +79,28 @@ const ChatPanel = ({ streamId }) => {
       return;
     }
 
+    const content = message.trim();
+    const pendingId = `temp-${Date.now()}`;
+
+    // Optimistic UI: mesajı hemen ekle
+    setChatMessages((prev) => [
+      ...prev,
+      { id: pendingId, stream_id: streamId, user_id: user.id, content, profiles: { username: user.user_metadata?.username || user.email } }
+    ]);
+    setMessage('');
+
     const { error } = await supabase
       .from('stream_messages')
       .insert({
         stream_id: streamId,
         user_id: user.id,
-        content: message.trim()
+        content
       });
 
     if (error) {
       toast({ title: 'Mesaj gönderilemedi', description: error.message, variant: 'destructive' });
-    } else {
-      setMessage('');
+      // Hata olursa optimistic mesajı geri al
+      setChatMessages((prev) => prev.filter(m => m.id !== pendingId));
     }
   };
 

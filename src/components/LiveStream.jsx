@@ -10,7 +10,10 @@ const LiveStream = ({ streamId }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const videoRef = useRef(null);
+  // Tek izleyici için kullanılan PC (izleyici cihazındayken)
   const peerConnectionRef = useRef(null);
+  // Publisher iken her izleyici için ayrı RTCPeerConnection tut
+  const publisherPeersRef = useRef(new Map()); // viewerId -> RTCPeerConnection
   const signalingRef = useRef(null);
   const streamRef = useRef(null);
   const hlsRef = useRef(null);
@@ -27,8 +30,9 @@ const LiveStream = ({ streamId }) => {
   const [sigState, setSigState] = useState('stable');
   const [iceConnState, setIceConnState] = useState('new');
   const [iceGatherState, setIceGatherState] = useState('new');
+  // Debug kaldırıldı; opsiyonel olarak env ile açılabilir.
   const [logs, setLogs] = useState([]);
-  const [showLogs, setShowLogs] = useState(false);
+  const debugEnabled = import.meta.env.VITE_DEBUG_STREAM === 'true';
   const [hlsActive, setHlsActive] = useState(false);
   const [requestRetries, setRequestRetries] = useState(0);
 
@@ -64,10 +68,10 @@ const LiveStream = ({ streamId }) => {
   }, []);
 
   const log = useCallback((msg) => {
+    if (!debugEnabled) return;
     const line = `${new Date().toLocaleTimeString()} | ${msg}`;
     setLogs(prev => [line, ...prev].slice(0, 200));
-    // console.log(line);
-  }, []);
+  }, [debugEnabled]);
 
   useEffect(() => {
     const fetchStreamData = async () => {
@@ -115,11 +119,15 @@ const LiveStream = ({ streamId }) => {
   useEffect(() => {
     if (!streamData || isLoading) return;
 
+    // Giriş zorunluluğu: izleyici giriş yapmadıysa hiçbir signaling/bağlantı yapma
+    if (!isPublisher && !user) return;
+
   const signalingChannel = supabase.channel(`signaling-${streamId}`);
   signalingRef.current = signalingChannel;
 
-    const setupPeerConnection = () => {
-        if (peerConnectionRef.current) return;
+  const setupPeerConnection = () => {
+    if (isPublisher) return; // Publisher izleyici PC oluşturmaz
+    if (peerConnectionRef.current) return;
         const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
         const turnUrl = import.meta.env.VITE_TURN_URL;
         const turnUser = import.meta.env.VITE_TURN_USERNAME;
@@ -181,21 +189,70 @@ const LiveStream = ({ streamId }) => {
 
     const handleSignaling = async (message) => {
         const { event, payload } = message;
-        if (!pc) return;
+        if (!isPublisher && !pc) return;
 
         try {
             if (event === 'offer' && !isPublisher) {
+                // Eğer offer belirli bir viewerId için ise ve bu cihazın kimliği farklıysa yok say
+                if (payload?.viewerId && user?.id && payload.viewerId !== user.id) return;
                 await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
-                signalingChannel.send({ type: 'broadcast', event: 'answer', payload: { answer } });
+                signalingChannel.send({ type: 'broadcast', event: 'answer', payload: { answer, viewerId: user?.id } });
                 log('received offer -> sent answer');
             } else if (event === 'answer' && isPublisher) {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-                log('publisher received answer');
+                const vid = payload?.viewerId;
+                if (!vid) return;
+                const ppc = publisherPeersRef.current.get(vid);
+                if (ppc) {
+                  await ppc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                  log(`publisher received answer from ${vid}`);
+                }
             } else if (event === 'ice-candidate') {
-                await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                if (!isPublisher) {
+                  await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } else {
+                  const vid = payload?.viewerId;
+                  const ppc = vid && publisherPeersRef.current.get(vid);
+                  if (ppc) await ppc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                }
                 log('received ice-candidate');
+            } else if (event === 'request-offer' && isPublisher) {
+                const vid = payload?.viewerId;
+                if (!vid || !streamRef.current) return;
+                // Her izleyici için ayrı PC oluştur
+                let ppc = publisherPeersRef.current.get(vid);
+                if (!ppc) {
+                  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+                  const turnUrl = import.meta.env.VITE_TURN_URL;
+                  const turnUser = import.meta.env.VITE_TURN_USERNAME;
+                  const turnCred = import.meta.env.VITE_TURN_CREDENTIAL;
+                  if (turnUrl && turnUser && turnCred) {
+                    iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+                  }
+                  ppc = new RTCPeerConnection({ iceServers });
+                  // Publish local tracks
+                  streamRef.current.getTracks().forEach(track => ppc.addTrack(track, streamRef.current));
+                  // ICE to viewer
+                  ppc.onicecandidate = (ev) => {
+                    if (ev.candidate) {
+                      signalingChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate: ev.candidate, viewerId: vid } });
+                    }
+                  };
+                  // Auto cleanup on disconnect
+                  ppc.oniceconnectionstatechange = () => {
+                    if (["closed","failed","disconnected"].includes(ppc.iceConnectionState)) {
+                      try { ppc.close(); } catch {}
+                      publisherPeersRef.current.delete(vid);
+                    }
+                  };
+                  publisherPeersRef.current.set(vid, ppc);
+                }
+                // Offer for that viewer
+                const offer = await ppc.createOffer();
+                await ppc.setLocalDescription(offer);
+                signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer, viewerId: vid } });
+                log(`publisher sent offer to ${vid}`);
             }
         } catch (error) {
             console.error("Signaling error:", error);
@@ -226,23 +283,7 @@ const LiveStream = ({ streamId }) => {
                    });
     
     // Publisher logic to respond to offer requests
-    if (isPublisher) {
-        signalingChannel.on('broadcast', { event: 'request-offer' }, async () => {
-            if (!streamRef.current) return;
-            try {
-              // Eğer halihazırda lokal offer varsa onu yeniden yayınla, değilse yeni offer oluştur
-              let offer = peerConnectionRef.current?.localDescription;
-              if (!offer || offer.type !== 'offer' || pc.signalingState === 'stable') {
-                offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-              }
-              signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
-              log('publisher sent offer (on request)');
-            } catch (e) {
-              log(`publisher request-offer error: ${e?.message || e}`);
-            }
-        }).subscribe();
-    }
+    // Publisher tarafında request-offer handle'ı yukarıda tanımlandı
 
     return () => {
       supabase.removeChannel(signalingChannel);
@@ -296,9 +337,7 @@ const LiveStream = ({ streamId }) => {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = mediaStream;
       
-      mediaStream.getTracks().forEach(track => {
-        peerConnectionRef.current.addTrack(track, mediaStream);
-      });
+      // Publisher yerel önizleme için yalnızca video elementine set ediyor.
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -307,19 +346,10 @@ const LiveStream = ({ streamId }) => {
 
       setIsStreaming(true);
       
-      await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
-
-      const offer = await peerConnectionRef.current.createOffer();
-      await peerConnectionRef.current.setLocalDescription(offer);
-      
-      // Halihazırda subscribe edilmiş kanaldan yayınla
-      const signalingChannel = signalingRef.current || supabase.channel(`signaling-${streamId}`);
-      // Kanal subscribe edilmemişse subscribe et (idempotent)
-      try { await signalingChannel.subscribe(); } catch {}
-      signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
+  await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
 
       toast({ title: "🎥 Canlı yayın başladı!" });
-      log('publisher created initial offer');
+  log('publisher started local preview (offers per viewer on request)');
     } catch (error) {
       toast({ title: "❌ İzin gerekli", description: "Kamera ve mikrofon izni vermelisiniz!", variant: "destructive" });
     }
@@ -431,22 +461,21 @@ const LiveStream = ({ streamId }) => {
             </div>
           )}
 
-          {/* Diagnostik panel */}
-          <div className="absolute top-4 right-4 text-xs text-white/90 bg-black/40 rounded-md p-2 space-y-1">
-            <div><span className="opacity-70">signaling:</span> {sigState}</div>
-            <div><span className="opacity-70">conn:</span> {connState}</div>
-            <div><span className="opacity-70">ice:</span> {iceConnState} / {iceGatherState}</div>
-            <div><span className="opacity-70">mode:</span> {isPublisher ? 'publisher' : 'viewer'}{hlsActive ? ' + HLS' : ''}</div>
-            <div className="flex gap-2">
-              <Button size="xs" variant="secondary" onClick={() => setShowLogs(s => !s)}>Loglar</Button>
+          {/* Diagnostik panel opsiyonel */}
+          {debugEnabled && (
+            <div className="absolute top-4 right-4 text-xs text-white/90 bg-black/40 rounded-md p-2 space-y-1">
+              <div><span className="opacity-70">signaling:</span> {sigState}</div>
+              <div><span className="opacity-70">conn:</span> {connState}</div>
+              <div><span className="opacity-70">ice:</span> {iceConnState} / {iceGatherState}</div>
+              <div><span className="opacity-70">mode:</span> {isPublisher ? 'publisher' : 'viewer'}{hlsActive ? ' + HLS' : ''}</div>
               {!isPublisher && <Button size="xs" variant="secondary" onClick={reconnect}>Yeniden Bağlan</Button>}
+              {logs.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-auto bg-black/50 p-2 rounded">
+                  {logs.slice(0,30).map((l, i) => (<div key={i} className="whitespace-pre-wrap opacity-90">{l}</div>))}
+                </div>
+              )}
             </div>
-            {showLogs && (
-              <div className="mt-2 max-h-40 overflow-auto bg-black/50 p-2 rounded">
-                {logs.slice(0,30).map((l, i) => (<div key={i} className="whitespace-pre-wrap opacity-90">{l}</div>))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </motion.div>
     </div>
