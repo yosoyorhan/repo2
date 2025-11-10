@@ -25,6 +25,9 @@ const LiveStream = ({ streamId }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewerMuted, setViewerMuted] = useState(true);
+  const [orientation, setOrientation] = useState('landscape'); // 'portrait' | 'landscape'
+  const [facingMode, setFacingMode] = useState('user'); // 'user' | 'environment'
+  const navBlockRef = useRef(false);
 
   // Debug/diagnostic states
   const [connState, setConnState] = useState('new');
@@ -46,25 +49,27 @@ const LiveStream = ({ streamId }) => {
       e.preventDefault();
       e.returnValue = '';
     };
-    const popHandler = (e) => {
+    const guardNav = () => {
+      if (navBlockRef.current) return;
       const ok = window.confirm('Yayını sona erdireceksiniz. Emin misiniz?');
       if (!ok) {
-        // İptal: ileri bir state push ederek geri hareketi nötrle
+        navBlockRef.current = true;
+        // iptal: aynı sayfada kal
         history.pushState(null, '', window.location.href);
-      } else {
-        // Akış sonlandır
-        if (streamData?.id) {
-          supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
-        }
+        setTimeout(() => (navBlockRef.current = false), 100);
+      } else if (streamData?.id) {
+        supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
       }
     };
     window.addEventListener('beforeunload', beforeUnload);
-    window.addEventListener('popstate', popHandler);
+    window.addEventListener('popstate', guardNav);
+    window.addEventListener('hashchange', guardNav);
     // Geri tuşunu yakalamak için ekstra bir state push
     history.pushState(null, '', window.location.href);
     return () => {
       window.removeEventListener('beforeunload', beforeUnload);
-      window.removeEventListener('popstate', popHandler);
+      window.removeEventListener('popstate', guardNav);
+      window.removeEventListener('hashchange', guardNav);
     };
   }, [isPublisher, isStreaming, streamData?.id]);
 
@@ -492,6 +497,54 @@ const LiveStream = ({ streamId }) => {
   };
     
   const copyLink = () => {
+  const toggleOrientation = () => {
+    setOrientation(prev => (prev === 'landscape' ? 'portrait' : 'landscape'));
+    toast({ title: `Görüntü: ${orientation === 'landscape' ? 'Dikey' : 'Yatay'}` });
+  };
+
+  const switchCamera = async () => {
+    if (!isPublisher) return;
+    try {
+      const desired = facingMode === 'user' ? 'environment' : 'user';
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: desired } }, audio: false });
+      } catch {
+        try {
+          newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: desired }, audio: false });
+        } catch {
+          // Son çare: cihaz listesinden arka kamerayı bul
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoInput = devices.find(d => d.kind === 'videoinput' && (desired === 'environment' ? /back|rear|environment/i.test(d.label) : /front|user/i.test(d.label)));
+          if (videoInput) {
+            newStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoInput.deviceId } }, audio: false });
+          }
+        }
+      }
+      if (!newStream) {
+        toast({ title: 'Kamera değiştirilemedi', variant: 'destructive' });
+        return;
+      }
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      // Mevcut stream'in video track'ini değiştir
+      const audioTracks = streamRef.current ? streamRef.current.getAudioTracks() : [];
+      const combined = new MediaStream([newVideoTrack, ...audioTracks]);
+      streamRef.current?.getVideoTracks().forEach(t => t.stop());
+      streamRef.current = combined;
+      if (videoRef.current) {
+        videoRef.current.srcObject = combined;
+      }
+      // Her izleyici için gönderilen track'i değiştir
+      publisherPeersRef.current.forEach((ppc) => {
+        const sender = ppc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(newVideoTrack);
+      });
+      setFacingMode(desired);
+      toast({ title: desired === 'environment' ? 'Arka kamera' : 'Ön kamera' });
+    } catch (e) {
+      toast({ title: 'Kamera değiştirme hatası', description: String(e), variant: 'destructive' });
+    }
+  };
     navigator.clipboard.writeText(window.location.href);
     toast({title: "Yayın linki kopyalandı!"});
   }
@@ -511,7 +564,7 @@ const LiveStream = ({ streamId }) => {
         transition={{ duration: 0.3 }}
         className="w-full max-w-4xl"
       >
-        <div className="relative bg-black rounded-2xl overflow-hidden aspect-video">
+        <div className="relative bg-black rounded-2xl overflow-hidden" style={{ aspectRatio: orientation === 'portrait' ? '9 / 16' : '16 / 9' }}>
           <video
             ref={videoRef}
             autoPlay
@@ -540,19 +593,10 @@ const LiveStream = ({ streamId }) => {
           )}
           
           {isStreaming && isPublisher && (
-            <>
-              <div className="absolute top-4 left-4 flex gap-2">
-                <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
-                <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
-              </div>
-              {/* Büyük ve belirgin Yayını Bitir butonu */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-                <Button onClick={endStreamManually} size="lg" className="rounded-full bg-red-600 text-white px-8 py-6 text-xl font-bold shadow-lg hover:bg-red-700">
-                  <VideoOff className="w-7 h-7 mr-3" />
-                  Yayını Bitir
-                </Button>
-              </div>
-            </>
+            <div className="absolute top-4 left-4 flex gap-2">
+              <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
+              <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
+            </div>
           )}
 
           {/* İzleyici ses açma */}
@@ -585,6 +629,21 @@ const LiveStream = ({ streamId }) => {
             </div>
           )}
         </div>
+
+        {/* Video altı kontrol şeridi (publisher) */}
+        {isStreaming && isPublisher && (
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <Button onClick={endStreamManually} className="rounded-full bg-red-600 text-white hover:bg-red-700">
+              <VideoOff className="w-5 h-5 mr-2" /> Yayını Bitir
+            </Button>
+            <Button onClick={toggleOrientation} variant="secondary" className="rounded-full">
+              {orientation === 'landscape' ? 'Dikey Görüntü' : 'Yatay Görüntü'}
+            </Button>
+            <Button onClick={switchCamera} variant="secondary" className="rounded-full">
+              {facingMode === 'user' ? 'Arka Kameraya Geç' : 'Ön Kameraya Geç'}
+            </Button>
+          </div>
+        )}
       </motion.div>
     </div>
   );
