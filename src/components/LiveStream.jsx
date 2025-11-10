@@ -124,26 +124,42 @@ const LiveStream = ({ streamId }) => {
     };
   }, [streamId, toast, isPublisher, cleanup]);
 
-  // Publisher sayfa kapanınca yayını bitir (devre dışı - manuel bitirme tercih edildi)
-  // useEffect(() => {
-  //   if (!isPublisher || !streamData?.id || !isStreaming) return;
-  //   
-  //   const endStream = async () => {
-  //     await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
-  //   };
-  //   
-  //   const handleBeforeUnload = (e) => {
-  //     endStream();
-  //     e.preventDefault();
-  //     e.returnValue = '';
-  //   };
-  //   
-  //   window.addEventListener('beforeunload', handleBeforeUnload);
-  //   
-  //   return () => {
-  //     window.removeEventListener('beforeunload', handleBeforeUnload);
-  //   };
-  // }, [isPublisher, streamData?.id, isStreaming]);
+  // Publisher sayfa yenilemek veya geri gitmek isterse uyarı popup’ı
+  useEffect(() => {
+    if (!isPublisher || !streamData?.id || !isStreaming) return;
+    let confirmed = false;
+    const endStream = async () => {
+      await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
+    };
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Yayını sona erdireceksiniz. Emin misiniz?';
+      // Modern tarayıcılar custom metni göstermez, sadece uyarı popup’ı açar
+      if (confirmed) {
+        endStream();
+      }
+      return 'Yayını sona erdireceksiniz. Emin misiniz?';
+    };
+    const handlePopState = (e) => {
+      if (!confirmed) {
+        const result = window.confirm('Yayını sona erdireceksiniz. Emin misiniz?');
+        if (result) {
+          confirmed = true;
+          endStream();
+          window.history.back();
+        } else {
+          e.preventDefault();
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isPublisher, streamData?.id, isStreaming]);
 
   // Yayını Bitir butonu
   const endStreamManually = async () => {
