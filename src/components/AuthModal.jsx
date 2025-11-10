@@ -1,0 +1,133 @@
+import React, { useState } from 'react';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+
+const AuthModal = ({ isOpen, setIsOpen }) => {
+  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
+  const [isLoginView, setIsLoginView] = useState(true);
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    let error;
+    if (isLoginView) {
+      ({ error } = await signIn(form.email, form.password));
+    } else {
+      if (!form.username) {
+          toast({ variant: "destructive", title: "Validation Error", description: "Username is required." });
+          setLoading(false);
+          return;
+      }
+      ({ error } = await signUp(form.email, form.password, {
+        data: { username: form.username },
+      }));
+    }
+
+    if (!error) {
+      setIsOpen(false);
+      setForm({ username: '', email: '', password: '' }); // Reset form
+    }
+    setLoading(false);
+  };
+  
+  const handleOpenChange = (open) => {
+    if (!open) {
+      setForm({ username: '', email: '', password: '' });
+    }
+    setIsOpen(open);
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="bg-white rounded-2xl shadow-lg w-[400px] p-8">
+        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Hoş Geldin 👋</h2>
+
+        <div className="flex justify-center mb-6 bg-gray-100 p-1 rounded-full">
+          <button
+            className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-300 ${isLoginView ? 'bg-white shadow' : 'text-gray-500'}`}
+            onClick={() => setIsLoginView(true)}
+          >
+            Giriş Yap
+          </button>
+          <button
+            className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-300 ${!isLoginView ? 'bg-white shadow' : 'text-gray-500'}`}
+            onClick={() => setIsLoginView(false)}
+          >
+            Kayıt Ol
+          </button>
+        </div>
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          <AnimatePresence mode="wait">
+            <motion.div
+                key={isLoginView ? 'login' : 'register'}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+              {!isLoginView && (
+                  <div className="space-y-2">
+                    <Label htmlFor="username-signup">Kullanıcı Adı</Label>
+                    <Input
+                      id="username-signup"
+                      type="text"
+                      placeholder="kullanici_adin"
+                      className="w-full border p-2 rounded-lg"
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    />
+                  </div>
+              )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="ornek@mail.com"
+                    className="w-full border p-2 rounded-lg"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Parola</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full border p-2 rounded-lg"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
+                </div>
+            </motion.div>
+          </AnimatePresence>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#FFDE59] hover:bg-[#FFD700] text-black font-semibold rounded-lg py-2.5 transition-transform hover:scale-105"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : (isLoginView ? 'Giriş Yap' : 'Kayıt Ol')}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default AuthModal;
