@@ -11,6 +11,7 @@ const LiveStream = ({ streamId }) => {
   const { user } = useAuth();
   const videoRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const signalingRef = useRef(null);
   const streamRef = useRef(null);
   const hlsRef = useRef(null);
   const retryTimerRef = useRef(null);
@@ -114,7 +115,8 @@ const LiveStream = ({ streamId }) => {
   useEffect(() => {
     if (!streamData || isLoading) return;
 
-    const signalingChannel = supabase.channel(`signaling-${streamId}`);
+  const signalingChannel = supabase.channel(`signaling-${streamId}`);
+  signalingRef.current = signalingChannel;
 
     const setupPeerConnection = () => {
         if (peerConnectionRef.current) return;
@@ -161,6 +163,8 @@ const LiveStream = ({ streamId }) => {
                 videoRef.current.srcObject = event.streams[0];
                 setIsStreaming(true);
                 setViewerMuted(true); // autoplay için sessize al
+                // Mobilde autoplay'in çalışmaması durumuna karşı play() çağır
+                videoRef.current.play().catch(() => {});
                 // HLS aktifse kapat
                 if (hlsRef.current) {
                   try { hlsRef.current.destroy(); } catch {}
@@ -224,11 +228,18 @@ const LiveStream = ({ streamId }) => {
     // Publisher logic to respond to offer requests
     if (isPublisher) {
         signalingChannel.on('broadcast', { event: 'request-offer' }, async () => {
-            if (streamRef.current && pc.signalingState === "stable") {
-                const offer = await pc.createOffer();
+            if (!streamRef.current) return;
+            try {
+              // Eğer halihazırda lokal offer varsa onu yeniden yayınla, değilse yeni offer oluştur
+              let offer = peerConnectionRef.current?.localDescription;
+              if (!offer || offer.type !== 'offer' || pc.signalingState === 'stable') {
+                offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
-                log('publisher created and sent offer');
+              }
+              signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
+              log('publisher sent offer (on request)');
+            } catch (e) {
+              log(`publisher request-offer error: ${e?.message || e}`);
             }
         }).subscribe();
     }
@@ -301,12 +312,11 @@ const LiveStream = ({ streamId }) => {
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
       
-      const signalingChannel = supabase.channel(`signaling-${streamId}`);
-      signalingChannel.send({
-        type: 'broadcast',
-        event: 'offer',
-        payload: { offer },
-      });
+      // Halihazırda subscribe edilmiş kanaldan yayınla
+      const signalingChannel = signalingRef.current || supabase.channel(`signaling-${streamId}`);
+      // Kanal subscribe edilmemişse subscribe et (idempotent)
+      try { await signalingChannel.subscribe(); } catch {}
+      signalingChannel.send({ type: 'broadcast', event: 'offer', payload: { offer } });
 
       toast({ title: "🎥 Canlı yayın başladı!" });
       log('publisher created initial offer');
