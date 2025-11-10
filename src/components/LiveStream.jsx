@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { usePrompt } from '@/lib/usePrompt';
 import { motion } from 'framer-motion';
 import { Video, VideoOff, Mic, MicOff, Camera, Loader2, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,11 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const LiveStream = ({ streamId }) => {
+  // Route değişiminde canlı yayıncıya uyarı göster
+  usePrompt(
+    isPublisher && isStreaming,
+    'Yayını sona erdireceksiniz. Emin misiniz?'
+  );
   const { toast } = useToast();
   const { user } = useAuth();
   const videoRef = useRef(null);
