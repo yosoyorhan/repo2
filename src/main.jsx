@@ -14,7 +14,8 @@ const Router = isGhPages ? HashRouter : BrowserRouter;
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <>
-    <Router basename={import.meta.env.BASE_URL}>
+    {/* HashRouter altında basename vermeyelim; BrowserRouter için BASE_URL kullan */}
+    <Router {...(isGhPages ? {} : { basename: import.meta.env.BASE_URL })}>
       <AuthProvider>
         <App />
         <Toaster />
