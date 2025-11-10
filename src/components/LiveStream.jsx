@@ -20,6 +20,7 @@ const LiveStream = ({ streamId }) => {
   const retryTimerRef = useRef(null);
 
   const [streamData, setStreamData] = useState(null);
+  const [streamEnded, setStreamEnded] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,8 +64,9 @@ const LiveStream = ({ streamId }) => {
           peerConnectionRef.current.close();
           peerConnectionRef.current = null;
       }
-      setIsStreaming(false);
-      setRequestRetries(0);
+  setIsStreaming(false);
+  setRequestRetries(0);
+  setStreamEnded(false);
   }, []);
 
   const log = useCallback((msg) => {
@@ -74,7 +76,7 @@ const LiveStream = ({ streamId }) => {
   }, [debugEnabled]);
 
   useEffect(() => {
-    const fetchStreamData = async () => {
+  const fetchStreamData = async () => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('streams')
@@ -87,27 +89,59 @@ const LiveStream = ({ streamId }) => {
         setIsLoading(false);
         return;
       }
-      setStreamData(data);
-      setIsLoading(false);
+  setStreamData(data);
+  setIsLoading(false);
+  if (data.status === 'ended') setStreamEnded(true);
     };
 
     fetchStreamData();
     
     // Subscribe to stream status changes
-    const streamChannel = supabase.channel(`stream-status-${streamId}`)
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'streams',
-            filter: `id=eq.${streamId}`
-        }, (payload) => {
-            setStreamData(payload.new);
-            if (payload.new.status === 'inactive' && !isPublisher) {
-                toast({ title: 'Yayın sona erdi.' });
-                cleanup();
-            }
-        })
-        .subscribe();
+  const streamChannel = supabase.channel(`stream-status-${streamId}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'streams',
+      filter: `id=eq.${streamId}`
+    }, (payload) => {
+      setStreamData(payload.new);
+      if (payload.new.status === 'ended') {
+        setStreamEnded(true);
+        toast({ title: 'Yayın sona erdi.' });
+        cleanup();
+      }
+      if (payload.new.status === 'inactive' && !isPublisher) {
+        toast({ title: 'Yayın sona erdi.' });
+        cleanup();
+      }
+    })
+    .subscribe();
+  // Publisher sayfa kapanınca yayını bitir
+  useEffect(() => {
+    if (!isPublisher || !streamData?.id) return;
+    const endStream = async () => {
+      await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
+    };
+    const handleUnload = () => { endStream(); };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') endStream();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+      document.removeEventListener('visibilitychange', () => {});
+    };
+  }, [isPublisher, streamData?.id]);
+  // Yayını Bitir butonu
+  const endStreamManually = async () => {
+    if (!isPublisher || !streamData?.id) return;
+    await supabase.from('streams').update({ status: 'ended' }).eq('id', streamData.id);
+    setStreamEnded(true);
+    cleanup();
+    toast({ title: 'Yayın sona erdi.' });
+  };
         
     return () => {
         cleanup();
@@ -402,6 +436,9 @@ const LiveStream = ({ streamId }) => {
   if (isLoading) {
     return <div className="bg-gray-50 p-6 flex flex-col items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-[#FFDE59]" /></div>;
   }
+  if (streamEnded) {
+    return <div className="bg-gray-50 p-6 flex flex-col items-center justify-center"><p className="text-lg text-gray-600">Yayın sona erdi.</p></div>;
+  }
 
   return (
     <div className="bg-gray-50 p-6 flex flex-col items-center justify-center relative">
@@ -442,7 +479,7 @@ const LiveStream = ({ streamId }) => {
           {isStreaming && isPublisher && (
             <div className="absolute top-4 left-4 flex gap-2">
                <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
-               <Button onClick={stopStream} size="icon" className="rounded-full bg-red-500/80 backdrop-blur-sm hover:bg-red-600/80"><VideoOff /></Button>
+               <Button onClick={endStreamManually} size="icon" className="rounded-full bg-red-500/80 backdrop-blur-sm hover:bg-red-600/80"><VideoOff /></Button>
                <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
             </div>
           )}

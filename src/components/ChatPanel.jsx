@@ -37,18 +37,16 @@ const ChatPanel = ({ streamId }) => {
     };
     fetchMessages();
 
-    // Subscribe to new messages
-    const messageChannel = supabase.channel(`chat-${streamId}`)
+    // Subscribe to new messages (realtime)
+    const messageChannel = supabase.channel(`public:stream_messages:stream=${streamId}`)
       .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'stream_messages',
-          filter: `stream_id=eq.${streamId}`
-      }, async (payload) => {
-          const { data: profileData, error } = await supabase.from('profiles').select('username, avatar_url').eq('id', payload.new.user_id).single();
-          if (!error) {
-            setChatMessages(currentMessages => [...currentMessages, { ...payload.new, profiles: profileData }]);
-          }
+        event: 'INSERT',
+        schema: 'public',
+        table: 'stream_messages',
+        filter: `stream_id=eq.${streamId}`
+      }, (payload) => {
+        // Profil bilgisi zaten payload.new.profiles ile geliyorsa ekle, yoksa sadece mesajı ekle
+        setChatMessages(currentMessages => [...currentMessages, { ...payload.new }]);
       })
       .subscribe();
       
