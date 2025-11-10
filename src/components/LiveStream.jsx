@@ -16,12 +16,14 @@ const LiveStream = ({ streamId }) => {
   const publisherPeersRef = useRef(new Map()); // viewerId -> RTCPeerConnection
   const signalingRef = useRef(null);
   const streamRef = useRef(null);
+  const previewRef = useRef(null);
   const hlsRef = useRef(null);
   const retryTimerRef = useRef(null);
 
   const [streamData, setStreamData] = useState(null);
   const [streamEnded, setStreamEnded] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [previewActive, setPreviewActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewerMuted, setViewerMuted] = useState(true);
@@ -72,6 +74,10 @@ const LiveStream = ({ streamId }) => {
           videoRef.current.srcObject.getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
       }
+      if (previewRef.current) {
+          previewRef.current.getTracks().forEach(track => track.stop());
+          previewRef.current = null;
+      }
       if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
@@ -83,6 +89,7 @@ const LiveStream = ({ streamId }) => {
   setIsStreaming(false);
   setRequestRetries(0);
   setStreamEnded(false);
+  setPreviewActive(false);
   }, []);
 
   const log = useCallback((msg) => {
@@ -401,13 +408,21 @@ const LiveStream = ({ streamId }) => {
     // cleanup handled in general cleanup
   }, [streamData?.hls_url, isPublisher, isStreaming, log]);
 
+  // Önizleme aktifse video elementine preview stream'i bağla
+  useEffect(() => {
+    if (previewActive && previewRef.current && videoRef.current && !isStreaming) {
+      videoRef.current.srcObject = previewRef.current;
+      videoRef.current.muted = true; // önizleme sırasında her zaman mute
+    }
+  }, [previewActive, isStreaming]);
+
+
 
   const startStream = async () => {
     if (!isPublisher) return;
 
     try {
-      // Aynı user için aktif stream var mı kontrol et
-      const { data: activeStreams, error: activeError } = await supabase
+      const { data: activeStreams } = await supabase
         .from('streams')
         .select('id')
         .eq('user_id', user.id)
@@ -417,19 +432,35 @@ const LiveStream = ({ streamId }) => {
         toast({ title: 'Zaten aktif bir yayının var!', variant: 'destructive' });
         return;
       }
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = mediaStream;
+      if (!previewRef.current) {
+        // Önizleme yoksa direkt video+audio iste
+        previewRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: true });
+      }
+      // Önizleme varsa, audio yoksa mikrofon eklemeyi dene
+      const videoTracks = previewRef.current.getVideoTracks();
+      let audioTracks = previewRef.current.getAudioTracks();
+      if (audioTracks.length === 0) {
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioTracks = audioStream.getAudioTracks();
+        } catch {
+          // mikrofon izin verilmediyse sessiz yayın olur
+          audioTracks = [];
+        }
+      }
+      streamRef.current = new MediaStream([...videoTracks, ...audioTracks]);
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+        videoRef.current.srcObject = streamRef.current;
         videoRef.current.muted = true;
       }
       setIsStreaming(true);
-      setStreamEnded(false); // Yayın başlayınca ended flag'ini temizle
+      setPreviewActive(false);
+      setStreamEnded(false);
       await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
-      toast({ title: "🎥 Canlı yayın başladı!" });
-      log('publisher started local preview (offers per viewer on request)');
+      toast({ title: '🎥 Canlı yayın başladı!' });
+      log('publisher started');
     } catch (error) {
-      toast({ title: "❌ İzin gerekli", description: "Kamera ve mikrofon izni vermelisiniz!", variant: "destructive" });
+      toast({ title: '❌ İzin gerekli', description: String(error), variant: 'destructive' });
     }
   };
 
@@ -491,6 +522,49 @@ const LiveStream = ({ streamId }) => {
     });
   };
 
+  const enterPreview = async () => {
+    if (!isPublisher) return;
+    try {
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+      } catch {
+        try {
+          newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: facingMode } }, audio: false });
+        } catch {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const desired = facingMode === 'environment';
+          const videoInput = devices.find(d => d.kind === 'videoinput' && (desired ? /back|rear|environment/i.test(d.label) : /front|user/i.test(d.label)));
+          if (videoInput) {
+            newStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: videoInput.deviceId } }, audio: false });
+          }
+        }
+      }
+      if (!newStream) throw new Error('Kamera erişimi başarısız');
+      if (previewRef.current) previewRef.current.getTracks().forEach(t => t.stop());
+      previewRef.current = newStream;
+      setPreviewActive(true);
+      if (videoRef.current && !isStreaming) {
+        videoRef.current.srcObject = newStream;
+        videoRef.current.muted = true;
+      }
+      toast({ title: 'Önizleme açıldı' });
+    } catch (e) {
+      toast({ title: 'Önizleme açılamadı', description: String(e), variant: 'destructive' });
+    }
+  };
+
+  const exitPreview = () => {
+    if (previewRef.current) {
+      previewRef.current.getTracks().forEach(t => t.stop());
+      previewRef.current = null;
+    }
+    setPreviewActive(false);
+    if (videoRef.current && !isStreaming) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
   const switchCamera = async () => {
     if (!isPublisher) return;
     try {
@@ -502,7 +576,6 @@ const LiveStream = ({ streamId }) => {
         try {
           newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: desired }, audio: false });
         } catch {
-          // Son çare: cihaz listesinden arka kamerayı bul
           const devices = await navigator.mediaDevices.enumerateDevices();
           const videoInput = devices.find(d => d.kind === 'videoinput' && (desired === 'environment' ? /back|rear|environment/i.test(d.label) : /front|user/i.test(d.label)));
           if (videoInput) {
@@ -515,19 +588,25 @@ const LiveStream = ({ streamId }) => {
         return;
       }
       const newVideoTrack = newStream.getVideoTracks()[0];
-      // Mevcut stream'in video track'ini değiştir
-      const audioTracks = streamRef.current ? streamRef.current.getAudioTracks() : [];
-      const combined = new MediaStream([newVideoTrack, ...audioTracks]);
-      streamRef.current?.getVideoTracks().forEach(t => t.stop());
-      streamRef.current = combined;
-      if (videoRef.current) {
-        videoRef.current.srcObject = combined;
+      if (isStreaming && streamRef.current) {
+        const audioTracks = streamRef.current.getAudioTracks();
+        const combined = new MediaStream([newVideoTrack, ...audioTracks]);
+        streamRef.current.getVideoTracks().forEach(t => t.stop());
+        streamRef.current = combined;
+        if (videoRef.current) videoRef.current.srcObject = combined;
+        publisherPeersRef.current.forEach((ppc) => {
+          const sender = ppc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(newVideoTrack);
+        });
+      } else {
+        // Preview modunda sadece önizleme stream'ini değiştir
+        if (previewRef.current) previewRef.current.getTracks().forEach(t => t.stop());
+        previewRef.current = new MediaStream([newVideoTrack]);
+        if (videoRef.current) {
+          videoRef.current.srcObject = previewRef.current;
+          videoRef.current.muted = true;
+        }
       }
-      // Her izleyici için gönderilen track'i değiştir
-      publisherPeersRef.current.forEach((ppc) => {
-        const sender = ppc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(newVideoTrack);
-      });
       setFacingMode(desired);
       toast({ title: desired === 'environment' ? 'Arka kamera' : 'Ön kamera' });
     } catch (e) {
@@ -562,13 +641,33 @@ const LiveStream = ({ streamId }) => {
           {!isStreaming && streamData?.status !== 'active' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
               {isPublisher ? (
-                <>
-                  <p className="text-lg">Yayına Başlamaya Hazır</p>
-                  <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-8 py-6 text-lg font-semibold">
-                    <Video className="w-6 h-6 mr-2" />
-                    Canlı Yayın Başlat
-                  </Button>
-                </>
+                !previewActive ? (
+                  <>
+                    <p className="text-lg">Önizleme başlat ve ayarları seç</p>
+                    <div className="flex gap-3">
+                      <Button onClick={enterPreview} variant="secondary" className="rounded-full">Önizleme</Button>
+                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-5 text-lg font-semibold">
+                        <Video className="w-6 h-6 mr-2" /> Yayını Direkt Başlat
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg">Önizleme Aktif - Yayına geç</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-5 text-lg font-semibold">
+                        <Video className="w-6 h-6 mr-2" /> Canlı Yayın Başlat
+                      </Button>
+                      <Button onClick={toggleOrientation} variant="secondary" className="rounded-full">
+                        {orientation === 'landscape' ? 'Dikey Görüntü' : 'Yatay Görüntü'}
+                      </Button>
+                      <Button onClick={switchCamera} variant="secondary" className="rounded-full">
+                        {facingMode === 'user' ? 'Arka Kamera' : 'Ön Kamera'}
+                      </Button>
+                      <Button onClick={exitPreview} variant="ghost" className="rounded-full text-white/70 hover:text-white">İptal</Button>
+                    </div>
+                  </>
+                )
               ) : (
                 <>
                   <Camera className="w-16 h-16 text-gray-600" />
