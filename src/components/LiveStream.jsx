@@ -76,7 +76,7 @@ const LiveStream = ({ streamId }) => {
   }, [debugEnabled]);
 
   useEffect(() => {
-  const fetchStreamData = async () => {
+    const fetchStreamData = async () => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('streams')
@@ -96,25 +96,32 @@ const LiveStream = ({ streamId }) => {
     fetchStreamData();
     
     // Subscribe to stream status changes
-  const streamChannel = supabase.channel(`stream-status-${streamId}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'streams',
-      filter: `id=eq.${streamId}`
-    }, (payload) => {
-      setStreamData(payload.new);
-      if (payload.new.status === 'ended') {
-        setStreamEnded(true);
-        toast({ title: 'Yayın sona erdi.' });
-        cleanup();
-      }
-      if (payload.new.status === 'inactive' && !isPublisher) {
-        toast({ title: 'Yayın sona erdi.' });
-        cleanup();
-      }
-    })
-    .subscribe();
+    const streamChannel = supabase.channel(`stream-status-${streamId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'streams',
+        filter: `id=eq.${streamId}`
+      }, (payload) => {
+        setStreamData(payload.new);
+        if (payload.new.status === 'ended') {
+          setStreamEnded(true);
+          toast({ title: 'Yayın sona erdi.' });
+          cleanup();
+        }
+        if (payload.new.status === 'inactive' && !isPublisher) {
+          toast({ title: 'Yayın sona erdi.' });
+          cleanup();
+        }
+      })
+      .subscribe();
+        
+    return () => {
+      cleanup();
+      supabase.removeChannel(streamChannel);
+    };
+  }, [streamId, toast, isPublisher, cleanup]);
+
   // Publisher sayfa kapanınca yayını bitir
   useEffect(() => {
     if (!isPublisher || !streamData?.id) return;
@@ -133,6 +140,7 @@ const LiveStream = ({ streamId }) => {
       document.removeEventListener('visibilitychange', () => {});
     };
   }, [isPublisher, streamData?.id]);
+
   // Yayını Bitir butonu
   const endStreamManually = async () => {
     if (!isPublisher || !streamData?.id) return;
@@ -141,12 +149,6 @@ const LiveStream = ({ streamId }) => {
     cleanup();
     toast({ title: 'Yayın sona erdi.' });
   };
-        
-    return () => {
-        cleanup();
-        supabase.removeChannel(streamChannel);
-    };
-  }, [streamId, toast, isPublisher, cleanup]);
 
   // WebRTC Logic
   useEffect(() => {
