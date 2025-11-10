@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 const AuthModal = ({ isOpen, setIsOpen }) => {
@@ -53,7 +55,10 @@ const AuthModal = ({ isOpen, setIsOpen }) => {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="bg-white rounded-2xl shadow-lg w-[400px] p-8">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Hoş Geldin 👋</h2>
+        <DialogTitle className="text-2xl font-bold text-center mb-6 text-gray-800">Hoş Geldin 👋</DialogTitle>
+        <DialogDescription className="sr-only">
+          {isLoginView ? 'Giriş yap veya yeni hesap oluştur' : 'Yeni hesap oluştur'}
+        </DialogDescription>
 
         <div className="flex justify-center mb-6 bg-gray-100 p-1 rounded-full">
           <button
