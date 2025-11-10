@@ -19,8 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: 'true'
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      # Supabase public credentials (anon key is safe for browser use)
+      VITE_SUPABASE_URL: 'https://djxukpbhlbomtvxejxtl.supabase.co'
+      VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqeHVrcGJobGJvbXR2eGVqeHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1OTg2MTIsImV4cCI6MjA3NjE3NDYxMn0.IGNiKLwsqbXetRFRLVuyvJQSzi3G5zzyGG8OOzRcjJY'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
