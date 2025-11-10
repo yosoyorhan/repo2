@@ -479,9 +479,16 @@ const LiveStream = ({ streamId }) => {
   };
     
   const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({ title: 'Yayın linki kopyalandı!' });
+  };
+
   const toggleOrientation = () => {
-    setOrientation(prev => (prev === 'landscape' ? 'portrait' : 'landscape'));
-    toast({ title: `Görüntü: ${orientation === 'landscape' ? 'Dikey' : 'Yatay'}` });
+    setOrientation(prev => {
+      const next = prev === 'landscape' ? 'portrait' : 'landscape';
+      toast({ title: `Görüntü: ${next === 'landscape' ? 'Yatay' : 'Dikey'}` });
+      return next;
+    });
   };
 
   const switchCamera = async () => {
@@ -527,9 +534,6 @@ const LiveStream = ({ streamId }) => {
       toast({ title: 'Kamera değiştirme hatası', description: String(e), variant: 'destructive' });
     }
   };
-    navigator.clipboard.writeText(window.location.href);
-    toast({title: "Yayın linki kopyalandı!"});
-  }
 
   if (isLoading) {
     return <div className="bg-gray-50 p-6 flex flex-col items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-[#FFDE59]" /></div>;
