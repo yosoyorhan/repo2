@@ -103,7 +103,7 @@ const LiveStream = ({ streamId }) => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('streams')
-        .select('id, user_id, title, status, stream_url, created_at, updated_at')
+        .select('id, user_id, title, status, stream_url, orientation, created_at, updated_at')
         .eq('id', streamId)
         .single();
       if (error || !data) {
@@ -112,6 +112,10 @@ const LiveStream = ({ streamId }) => {
         return;
       }
       setStreamData(data);
+      // Yayıncı değilse ve orientation bilgisi varsa, onu kullan
+      if (!isPublisher && data.orientation) {
+        setOrientation(data.orientation);
+      }
       setIsLoading(false);
       if (data.status === 'ended') setStreamEnded(true);
     };
@@ -127,6 +131,10 @@ const LiveStream = ({ streamId }) => {
         filter: `id=eq.${streamId}`
       }, (payload) => {
         setStreamData(payload.new);
+        // İzleyici orientation senkronizasyonu
+        if (!isPublisher && payload.new.orientation) {
+          setOrientation(payload.new.orientation);
+        }
         if (payload.new.status === 'ended') {
           setStreamEnded(true);
           toast({ title: 'Yayın sona erdi.' });
@@ -514,12 +522,14 @@ const LiveStream = ({ streamId }) => {
     toast({ title: 'Yayın linki kopyalandı!' });
   };
 
-  const toggleOrientation = () => {
-    setOrientation(prev => {
-      const next = prev === 'landscape' ? 'portrait' : 'landscape';
-      toast({ title: `Görüntü: ${next === 'landscape' ? 'Yatay' : 'Dikey'}` });
-      return next;
-    });
+  const toggleOrientation = async () => {
+    const next = orientation === 'landscape' ? 'portrait' : 'landscape';
+    setOrientation(next);
+    toast({ title: `Görüntü: ${next === 'landscape' ? 'Yatay' : 'Dikey'}` });
+    // Veritabanına kaydet (izleyiciler realtime alsın)
+    if (isPublisher && streamData?.id) {
+      await supabase.from('streams').update({ orientation: next }).eq('id', streamData.id);
+    }
   };
 
   const enterPreview = async () => {
@@ -622,49 +632,56 @@ const LiveStream = ({ streamId }) => {
   }
 
   return (
-    <div className="bg-gray-50 p-6 flex flex-col items-center justify-center relative">
+    <div className="bg-gray-50 p-2 sm:p-6 flex flex-col items-center justify-center relative min-h-screen">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
         className="w-full max-w-4xl"
       >
-        <div className="relative bg-black rounded-2xl overflow-hidden" style={{ aspectRatio: orientation === 'portrait' ? '9 / 16' : '16 / 9' }}>
+        <div 
+          className="relative bg-black rounded-lg sm:rounded-2xl overflow-hidden mx-auto"
+          style={{ 
+            aspectRatio: orientation === 'portrait' ? '9 / 16' : '16 / 9',
+            maxHeight: orientation === 'portrait' ? '85vh' : 'none',
+            width: orientation === 'portrait' ? 'auto' : '100%'
+          }}
+        >
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted={isPublisher || viewerMuted}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
 
           {!isStreaming && streamData?.status !== 'active' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white px-4">
               {isPublisher ? (
                 !previewActive ? (
                   <>
-                    <p className="text-lg">Önizleme başlat ve ayarları seç</p>
-                    <div className="flex gap-3">
-                      <Button onClick={enterPreview} variant="secondary" className="rounded-full">Önizleme</Button>
-                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-5 text-lg font-semibold">
-                        <Video className="w-6 h-6 mr-2" /> Yayını Direkt Başlat
+                    <p className="text-base sm:text-lg text-center">Önizleme başlat ve ayarları seç</p>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto px-4">
+                      <Button onClick={enterPreview} variant="secondary" className="rounded-full min-h-[44px] w-full sm:w-auto">Önizleme</Button>
+                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-3 sm:py-5 text-base sm:text-lg font-semibold min-h-[44px] w-full sm:w-auto">
+                        <Video className="w-5 h-5 sm:w-6 sm:h-6 mr-2" /> Yayını Direkt Başlat
                       </Button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <p className="text-lg">Önizleme Aktif - Yayına geç</p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-5 text-lg font-semibold">
-                        <Video className="w-6 h-6 mr-2" /> Canlı Yayın Başlat
+                    <p className="text-base sm:text-lg text-center">Önizleme Aktif - Yayına geç</p>
+                    <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto px-4">
+                      <Button onClick={startStream} size="lg" className="rounded-full bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] px-6 py-3 sm:py-5 text-base sm:text-lg font-semibold min-h-[44px] w-full sm:w-auto">
+                        <Video className="w-5 h-5 sm:w-6 sm:h-6 mr-2" /> Canlı Yayın Başlat
                       </Button>
-                      <Button onClick={toggleOrientation} variant="secondary" className="rounded-full">
+                      <Button onClick={toggleOrientation} variant="secondary" className="rounded-full min-h-[44px] w-full sm:w-auto">
                         {orientation === 'landscape' ? 'Dikey Görüntü' : 'Yatay Görüntü'}
                       </Button>
-                      <Button onClick={switchCamera} variant="secondary" className="rounded-full">
+                      <Button onClick={switchCamera} variant="secondary" className="rounded-full min-h-[44px] w-full sm:w-auto">
                         {facingMode === 'user' ? 'Arka Kamera' : 'Ön Kamera'}
                       </Button>
-                      <Button onClick={exitPreview} variant="ghost" className="rounded-full text-white/70 hover:text-white">İptal</Button>
+                      <Button onClick={exitPreview} variant="ghost" className="rounded-full text-white/70 hover:text-white min-h-[44px] w-full sm:w-auto">İptal</Button>
                     </div>
                   </>
                 )
@@ -678,16 +695,16 @@ const LiveStream = ({ streamId }) => {
           )}
           
           {isStreaming && isPublisher && (
-            <div className="absolute top-4 left-4 flex gap-2">
-              <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">{isMuted ? <MicOff /> : <Mic />}</Button>
-              <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"><LinkIcon /></Button>
+            <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex gap-2">
+              <Button onClick={toggleMute} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 h-10 w-10 sm:h-9 sm:w-9">{isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}</Button>
+              <Button onClick={copyLink} size="icon" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 h-10 w-10 sm:h-9 sm:w-9"><LinkIcon className="h-5 w-5" /></Button>
             </div>
           )}
 
           {/* İzleyici ses açma */}
           {isStreaming && !isPublisher && viewerMuted && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-              <Button onClick={toggleViewerMute} size="sm" className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">Sesi Aç</Button>
+              <Button onClick={toggleViewerMute} className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 px-6 py-2 text-base">Sesi Aç</Button>
             </div>
           )}
 
@@ -717,14 +734,14 @@ const LiveStream = ({ streamId }) => {
 
         {/* Video altı kontrol şeridi (publisher) */}
         {isStreaming && isPublisher && (
-          <div className="flex flex-wrap items-center gap-3 mt-4">
-            <Button onClick={endStreamManually} className="rounded-full bg-red-600 text-white hover:bg-red-700">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 mt-3 sm:mt-4 px-2">
+            <Button onClick={endStreamManually} className="rounded-full bg-red-600 text-white hover:bg-red-700 w-full sm:w-auto min-h-[44px]">
               <VideoOff className="w-5 h-5 mr-2" /> Yayını Bitir
             </Button>
-            <Button onClick={toggleOrientation} variant="secondary" className="rounded-full">
+            <Button onClick={toggleOrientation} variant="secondary" className="rounded-full w-full sm:w-auto min-h-[44px]">
               {orientation === 'landscape' ? 'Dikey Görüntü' : 'Yatay Görüntü'}
             </Button>
-            <Button onClick={switchCamera} variant="secondary" className="rounded-full">
+            <Button onClick={switchCamera} variant="secondary" className="rounded-full w-full sm:w-auto min-h-[44px]">
               {facingMode === 'user' ? 'Arka Kameraya Geç' : 'Ön Kameraya Geç'}
             </Button>
           </div>
