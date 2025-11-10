@@ -298,6 +298,7 @@ const LiveStream = ({ streamId }) => {
     signalingChannel.on('broadcast', { event: 'offer' }, handleSignaling)
                    .on('broadcast', { event: 'answer' }, handleSignaling)
                    .on('broadcast', { event: 'ice-candidate' }, handleSignaling)
+                   .on('broadcast', { event: 'request-offer' }, handleSignaling)
                    .subscribe(async (status) => {
                         if (status === 'SUBSCRIBED' && !isPublisher && streamData.status === 'active') {
                             // New viewer, request offer
@@ -426,12 +427,18 @@ const LiveStream = ({ streamId }) => {
     // İzleyici için yeniden bağlanma
     if (isPublisher) return;
     cleanup();
+    setRequestRetries(0);
+    setIsStreaming(false);
+    setViewerMuted(true);
+    // Yeni signaling request için kanal yeniden kurulsun
+    if (signalingRef.current) {
+      supabase.removeChannel(signalingRef.current);
+      signalingRef.current = null;
+    }
     setTimeout(() => {
-      setRequestRetries(0);
-      setIsStreaming(false);
-      setViewerMuted(true);
-      // state değişimleri yeni effect'i tetikleyecek
-    }, 50);
+      // State değişimi yeni useEffect'i tetikleyecek
+      setStreamData(prev => ({ ...prev }));
+    }, 100);
   };
     
   const copyLink = () => {
