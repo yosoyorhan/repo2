@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Video, VideoOff, Mic, MicOff, Camera, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Camera, Loader2, Link as LinkIcon, Gavel, TrendingUp, Package, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -41,6 +42,15 @@ const LiveStream = ({ streamId }) => {
   const debugEnabled = import.meta.env.VITE_DEBUG_STREAM === 'true';
   const [hlsActive, setHlsActive] = useState(false);
   const [requestRetries, setRequestRetries] = useState(0);
+
+  // Auction states
+  const [activeAuction, setActiveAuction] = useState(null);
+  const [showAuctionPanel, setShowAuctionPanel] = useState(false);
+  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [bidAmount, setBidAmount] = useState('');
+  const [auctionBids, setAuctionBids] = useState([]);
+  const [auctionChannel, setAuctionChannel] = useState(null);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
@@ -532,6 +542,162 @@ const LiveStream = ({ streamId }) => {
     }
   };
 
+  // Auction Functions
+  const fetchCollections = async () => {
+    if (!isPublisher) return;
+    try {
+      const { data, error } = await supabase
+        .from('collections')
+        .select(`
+          id, name, description,
+          collection_products(product_id, products(*))
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setCollections(data || []);
+    } catch (error) {
+      console.error('Error fetching collections:', error);
+    }
+  };
+
+  const startAuction = async (collectionId) => {
+    if (!isPublisher || !streamData) return;
+    try {
+      const collection = collections.find(c => c.id === collectionId);
+      if (!collection) return;
+      
+      const startingPrice = collection.collection_products?.length > 0 
+        ? collection.collection_products.reduce((sum, cp) => sum + Number(cp.products.price), 0)
+        : 0;
+
+      const { data, error } = await supabase
+        .from('auctions')
+        .insert({
+          stream_id: streamId,
+          collection_id: collectionId,
+          starting_price: startingPrice,
+          current_price: startingPrice,
+          status: 'active'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setActiveAuction(data);
+      setShowCollectionSelector(false);
+      setShowAuctionPanel(true);
+      toast({ title: '🔨 Açık artırma başladı!' });
+    } catch (error) {
+      console.error('Error starting auction:', error);
+      toast({ title: 'Açık artırma başlatılamadı', variant: 'destructive' });
+    }
+  };
+
+  const endAuction = async () => {
+    if (!isPublisher || !activeAuction) return;
+    try {
+      const { error } = await supabase
+        .from('auctions')
+        .update({ 
+          status: 'ended',
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', activeAuction.id);
+      
+      if (error) throw error;
+      
+      if (activeAuction.current_winner_id) {
+        toast({ title: `🎉 Açık artırma bitti! Kazanan: ${activeAuction.current_winner_id.slice(0, 8)}...` });
+      } else {
+        toast({ title: '⏹️ Açık artırma teklif almadan bitti' });
+      }
+      
+      setActiveAuction(null);
+      setShowAuctionPanel(false);
+    } catch (error) {
+      console.error('Error ending auction:', error);
+      toast({ title: 'Açık artırma bitirilemedi', variant: 'destructive' });
+    }
+  };
+
+  const placeBid = async () => {
+    if (!user || !activeAuction) return;
+    const amount = parseFloat(bidAmount);
+    if (isNaN(amount) || amount <= activeAuction.current_price) {
+      toast({ title: 'Teklif mevcut fiyattan yüksek olmalı', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('bids')
+        .insert({
+          auction_id: activeAuction.id,
+          user_id: user.id,
+          amount: amount
+        });
+      
+      if (error) throw error;
+      setBidAmount('');
+      toast({ title: '✅ Teklif verildi!' });
+    } catch (error) {
+      console.error('Error placing bid:', error);
+      toast({ title: 'Teklif verilemedi', variant: 'destructive' });
+    }
+  };
+
+  // Subscribe to active auction
+  useEffect(() => {
+    if (!streamData?.id) return;
+    
+    const fetchActiveAuction = async () => {
+      const { data } = await supabase
+        .from('auctions')
+        .select('*')
+        .eq('stream_id', streamData.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      if (data) {
+        setActiveAuction(data);
+        setShowAuctionPanel(true);
+      }
+    };
+    
+    fetchActiveAuction();
+    
+    // Realtime subscription for auction updates
+    const channel = supabase
+      .channel(`auction:${streamData.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'auctions',
+        filter: `stream_id=eq.${streamData.id}`
+      }, payload => {
+        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          setActiveAuction(payload.new);
+        } else if (payload.eventType === 'DELETE') {
+          setActiveAuction(null);
+          setShowAuctionPanel(false);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'bids'
+      }, payload => {
+        setAuctionBids(prev => [payload.new, ...prev]);
+      })
+      .subscribe();
+    
+    setAuctionChannel(channel);
+    
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [streamData?.id]);
+
   const enterPreview = async () => {
     if (!isPublisher) return;
     try {
@@ -744,9 +910,151 @@ const LiveStream = ({ streamId }) => {
             <Button onClick={switchCamera} variant="secondary" className="rounded-full w-full sm:w-auto min-h-[44px]">
               {facingMode === 'user' ? 'Arka Kameraya Geç' : 'Ön Kameraya Geç'}
             </Button>
+            <Button 
+              onClick={() => {
+                if (activeAuction) {
+                  setShowAuctionPanel(true);
+                } else {
+                  fetchCollections();
+                  setShowCollectionSelector(true);
+                }
+              }} 
+              variant="secondary" 
+              className="rounded-full w-full sm:w-auto min-h-[44px] bg-purple-600 text-white hover:bg-purple-700"
+            >
+              <Gavel className="w-5 h-5 mr-2" />
+              {activeAuction ? 'Açık Artırma' : 'Açık Artırma Başlat'}
+            </Button>
           </div>
         )}
+
+        {/* Auction Panel for Viewers */}
+        {showAuctionPanel && activeAuction && !isPublisher && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 bg-white rounded-xl p-4 shadow-lg"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Gavel className="h-5 w-5 text-purple-600" />
+                Açık Artırma
+              </h3>
+              <Button size="icon" variant="ghost" onClick={() => setShowAuctionPanel(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <div className="bg-purple-50 rounded-lg p-3">
+                <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
+                {activeAuction.current_winner_id && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lider: {activeAuction.current_winner_id === user?.id ? 'Siz' : activeAuction.current_winner_id.slice(0, 8) + '...'}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  className="flex-1 rounded-md border-gray-300 px-3 py-2 border focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="Teklifiniz"
+                  value={bidAmount}
+                  onChange={(e) => setBidAmount(e.target.value)}
+                />
+                <Button onClick={placeBid} className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Teklif Ver
+                </Button>
+              </div>
+              {auctionBids.length > 0 && (
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  <p className="text-xs font-medium text-gray-600 mb-1">Son Teklifler</p>
+                  {auctionBids.map((bid, idx) => (
+                    <div key={bid.id || idx} className="text-xs bg-gray-50 rounded p-2 flex justify-between">
+                      <span>{bid.user_id === user?.id ? 'Siz' : bid.user_id.slice(0, 8) + '...'}</span>
+                      <span className="font-semibold">₺{Number(bid.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Auction Control Panel for Publisher */}
+        {showAuctionPanel && activeAuction && isPublisher && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 bg-white rounded-xl p-4 shadow-lg"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Gavel className="h-5 w-5 text-purple-600" />
+                Açık Artırma Kontrol
+              </h3>
+              <Button size="icon" variant="ghost" onClick={() => setShowAuctionPanel(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <div className="bg-purple-50 rounded-lg p-3">
+                <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
+                {activeAuction.current_winner_id && (
+                  <p className="text-xs text-gray-500 mt-1">Lider: {activeAuction.current_winner_id.slice(0, 8)}...</p>
+                )}
+              </div>
+              <Button onClick={endAuction} className="w-full bg-red-600 hover:bg-red-700 text-white">
+                Açık Artırmayı Bitir
+              </Button>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
+
+      {/* Collection Selector Dialog */}
+      <Dialog open={showCollectionSelector} onOpenChange={setShowCollectionSelector}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Açık Artırma İçin Koleksiyon Seç</DialogTitle>
+            <DialogDescription>
+              Canlı yayında satmak istediğiniz ürün koleksiyonunu seçin
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            {collections.length === 0 ? (
+              <p className="text-gray-500 col-span-2 text-center py-8">
+                Henüz koleksiyon yok. Profil sayfanızdan koleksiyon oluşturun.
+              </p>
+            ) : (
+              collections.map(collection => (
+                <div
+                  key={collection.id}
+                  className="p-4 border rounded-lg hover:border-purple-500 cursor-pointer transition-colors"
+                  onClick={() => startAuction(collection.id)}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-semibold">{collection.name}</h4>
+                    <Package className="h-5 w-5 text-purple-600" />
+                  </div>
+                  {collection.description && (
+                    <p className="text-xs text-gray-600 mb-2 line-clamp-2">{collection.description}</p>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">{collection.collection_products?.length || 0} ürün</span>
+                    <span className="text-purple-600 font-semibold">
+                      ₺{collection.collection_products?.reduce((sum, cp) => sum + Number(cp.products.price), 0).toFixed(2) || '0.00'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

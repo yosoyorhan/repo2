@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck, PlusCircle } from 'lucide-react';
+import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck, PlusCircle, Package, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -20,6 +21,11 @@ const ProfilePage = () => {
   const [products, setProducts] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({ title: '', description: '', price: '' });
+  const [collections, setCollections] = useState([]);
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const [newCollection, setNewCollection] = useState({ name: '', description: '' });
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  const [showProductSelector, setShowProductSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -30,6 +36,7 @@ const ProfilePage = () => {
     fetchProfile();
     fetchStreams();
     fetchProducts();
+    fetchCollections();
     if (user && userId) {
       checkFollowStatus();
     }
@@ -260,6 +267,85 @@ const ProfilePage = () => {
     }
   };
 
+  // Koleksiyonları çek
+  const fetchCollections = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('collections')
+        .select(`
+          id, name, description, created_at,
+          collection_products(product_id, products(*))
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setCollections(data || []);
+    } catch (error) {
+      console.error('Error fetching collections:', error);
+    }
+  };
+
+  const handleCreateCollection = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      toast({ title: 'Giriş yapmalısınız', variant: 'destructive' });
+      return;
+    }
+    if (!newCollection.name.trim()) {
+      toast({ title: 'Koleksiyon adı gerekli', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('collections')
+        .insert({
+          user_id: user.id,
+          name: newCollection.name.trim(),
+          description: newCollection.description.trim() || null
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setCollections(prev => [{ ...data, collection_products: [] }, ...prev]);
+      setNewCollection({ name: '', description: '' });
+      setIsCreatingCollection(false);
+      toast({ title: 'Koleksiyon oluşturuldu ✅' });
+    } catch (error) {
+      console.error('Error creating collection:', error);
+      toast({ title: 'Koleksiyon oluşturulamadı', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleAddProductToCollection = async (collectionId, productId) => {
+    try {
+      const { error } = await supabase
+        .from('collection_products')
+        .insert({ collection_id: collectionId, product_id: productId });
+      if (error) throw error;
+      await fetchCollections();
+      toast({ title: 'Ürün koleksiyona eklendi ✅' });
+    } catch (error) {
+      console.error('Error adding product to collection:', error);
+      toast({ title: 'Ürün eklenemedi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleRemoveProductFromCollection = async (collectionId, productId) => {
+    try {
+      const { error } = await supabase
+        .from('collection_products')
+        .delete()
+        .eq('collection_id', collectionId)
+        .eq('product_id', productId);
+      if (error) throw error;
+      await fetchCollections();
+      toast({ title: 'Ürün koleksiyondan çıkarıldı' });
+    } catch (error) {
+      console.error('Error removing product from collection:', error);
+      toast({ title: 'Ürün çıkarılamadı', variant: 'destructive' });
+    }
+  };
+
   const ProductForm = () => (
     <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
       <div>
@@ -486,6 +572,20 @@ const ProfilePage = () => {
               Yayınlar
             </TabsTrigger>
             <TabsTrigger 
+              value="products" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Ürünlerim
+            </TabsTrigger>
+            <TabsTrigger 
+              value="collections" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Koleksiyonlar
+            </TabsTrigger>
+            <TabsTrigger 
               value="about" 
               className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
             >
@@ -498,13 +598,6 @@ const ProfilePage = () => {
             >
               <Calendar className="h-4 w-4 mr-2" />
               Aktivite
-            </TabsTrigger>
-            <TabsTrigger 
-              value="products" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Ürünlerim
             </TabsTrigger>
           </TabsList>
 
@@ -630,8 +723,144 @@ const ProfilePage = () => {
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="collections" className="mt-6">
+            <div className="space-y-6">
+              {isOwnProfile && (
+                <div>
+                  {!isCreatingCollection ? (
+                    <Button onClick={() => setIsCreatingCollection(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Package className="h-4 w-4 mr-2" /> Koleksiyon Oluştur
+                    </Button>
+                  ) : (
+                    <form onSubmit={handleCreateCollection} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Koleksiyon Adı</label>
+                        <input
+                          type="text"
+                          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500 px-3 py-2 border"
+                          value={newCollection.name}
+                          onChange={e => setNewCollection(p => ({ ...p, name: e.target.value }))}
+                          placeholder="Örn: Yaz Koleksiyonu"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Açıklama</label>
+                        <textarea
+                          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500 px-3 py-2 border"
+                          rows={3}
+                          value={newCollection.description}
+                          onChange={e => setNewCollection(p => ({ ...p, description: e.target.value }))}
+                          placeholder="Koleksiyon açıklaması"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button type="button" variant="outline" onClick={() => setIsCreatingCollection(false)}>İptal</Button>
+                        <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Oluştur</Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+              {collections.length === 0 ? (
+                <div className="bg-white rounded-xl p-12 text-center">
+                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Henüz koleksiyon yok</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {collections.map(collection => (
+                    <motion.div
+                      key={collection.id}
+                      whileHover={{ scale: 1.01 }}
+                      className="bg-white rounded-xl shadow-md border overflow-hidden"
+                    >
+                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
+                        <h3 className="font-bold text-lg">{collection.name}</h3>
+                        {collection.description && <p className="text-sm text-white/80 mt-1">{collection.description}</p>}
+                        <div className="flex items-center gap-4 mt-2 text-sm">
+                          <span>{collection.collection_products?.length || 0} ürün</span>
+                          <span>{new Date(collection.created_at).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        {isOwnProfile && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mb-3 w-full"
+                            onClick={() => {
+                              setSelectedCollection(collection);
+                              setShowProductSelector(true);
+                            }}
+                          >
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Ürün Ekle
+                          </Button>
+                        )}
+                        {collection.collection_products?.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">Henüz ürün eklenmemiş</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {collection.collection_products?.map(cp => cp.products && (
+                              <div key={cp.product_id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{cp.products.title}</p>
+                                  <p className="text-purple-600 font-semibold text-sm">₺{Number(cp.products.price).toFixed(2)}</p>
+                                </div>
+                                {isOwnProfile && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="ml-2"
+                                    onClick={() => handleRemoveProductFromCollection(collection.id, cp.product_id)}
+                                  >
+                                    <X className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Product Selector Dialog */}
+      <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Koleksiyona Ürün Ekle</DialogTitle>
+            <DialogDescription>
+              {selectedCollection?.name} koleksiyonuna eklemek için ürün seçin
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            {products
+              .filter(p => !selectedCollection?.collection_products?.some(cp => cp.product_id === p.id))
+              .map(product => (
+                <div
+                  key={product.id}
+                  className="p-3 border rounded-lg hover:border-purple-500 cursor-pointer transition-colors"
+                  onClick={() => {
+                    handleAddProductToCollection(selectedCollection.id, product.id);
+                    setShowProductSelector(false);
+                  }}
+                >
+                  <h4 className="font-semibold text-sm">{product.title}</h4>
+                  <p className="text-purple-600 font-semibold text-sm mt-1">₺{Number(product.price).toFixed(2)}</p>
+                  {product.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{product.description}</p>}
+                </div>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Profile Modal - TODO: Implement edit form */}
       {isEditing && (
