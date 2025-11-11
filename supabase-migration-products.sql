@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS products (
   description text,
   price numeric(12,2) NOT NULL DEFAULT 0,
   image_url text,
+  category text,
   created_at timestamptz NOT NULL DEFAULT timezone('utc'::text, now())
 );
 

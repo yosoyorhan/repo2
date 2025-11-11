@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Loader2 } from 'lucide-react';
+import { X, ImagePlus, Layers, DollarSign, Type, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -14,10 +14,9 @@ export default function ProductPopup({ onClose, onProductAdded }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [category, setCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleImageChange = (e) => {
+  const [isSaving, setIsSaving] = useState(false);  const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
@@ -27,20 +26,15 @@ export default function ProductPopup({ onClose, onProductAdded }) {
 
   const uploadImage = async () => {
     if (!imageFile || !user) return null;
-
     const fileExt = imageFile.name.split('.').pop();
     const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
     const { data, error } = await supabase.storage
       .from('product-images')
       .upload(fileName, imageFile);
-
     if (error) throw error;
-
     const { data: { publicUrl } } = supabase.storage
       .from('product-images')
       .getPublicUrl(fileName);
-
     return publicUrl;
   };
 
@@ -81,6 +75,7 @@ export default function ProductPopup({ onClose, onProductAdded }) {
           title: title.trim(),
           description: description.trim() || null,
           price: priceNumber,
+          category: category.trim() || null,
           image_url: imageUrl
         })
         .select()
@@ -101,6 +96,7 @@ export default function ProductPopup({ onClose, onProductAdded }) {
       setTitle('');
       setDescription('');
       setPrice('');
+      setCategory('');
       
       onClose();
     } catch (error) {
@@ -190,31 +186,29 @@ export default function ProductPopup({ onClose, onProductAdded }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg bg-white/40 backdrop-blur-2xl border border-white/50 rounded-2xl shadow-2xl p-6 animate-scale-in">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          disabled={isSaving}
-          className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 transition disabled:opacity-50"
-        >
-          <X size={20} />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-100/40 backdrop-blur-md animate-fade-in">
+      <div className="relative w-full max-w-4xl rounded-3xl bg-white border border-blue-100 shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center px-8 py-5 border-b border-blue-100 bg-blue-50">
+          <h2 className="text-xl font-semibold text-gray-800 tracking-tight">
+            Yeni Ürün Ekle
+          </h2>
+          <button 
+            onClick={onClose} 
+            disabled={isSaving}
+            className="text-gray-400 hover:text-gray-600 transition disabled:opacity-50"
+          >
+            <X size={22} />
+          </button>
+        </div>
 
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Yeni Ürün Ekle
-        </h2>
-
-        {/* Image Upload */}
-        <div className="flex flex-col sm:flex-row gap-5">
-          <label className="relative group flex items-center justify-center w-full sm:w-1/2 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-500 transition-all cursor-pointer bg-white/60 overflow-hidden">
+        {/* Body */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
+          {/* Left side: Image */}
+          <label className="group relative flex items-center justify-center aspect-square w-full rounded-2xl bg-blue-50 border border-dashed border-blue-200 hover:border-orange-300 transition cursor-pointer overflow-hidden">
             {image ? (
               <>
-                <img
-                  src={image}
-                  alt="Ürün Görseli"
-                  className="w-full h-full object-cover"
-                />
+                <img src={image} alt="preview" className="object-cover w-full h-full" />
                 {isUploading && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -222,96 +216,85 @@ export default function ProductPopup({ onClose, onProductAdded }) {
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center text-gray-500">
-                <Upload className="w-8 h-8 mb-2 text-gray-400" />
-                <p className="text-sm">Görsel yükle</p>
+              <div className="flex flex-col items-center justify-center text-blue-400">
+                <ImagePlus className="w-10 h-10 mb-2" />
+                <p className="text-sm font-medium">Ürün görseli ekle</p>
               </div>
             )}
-            <input
+            <input 
               ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageChange} 
+              className="hidden" 
               disabled={isSaving}
             />
           </label>
 
-          {/* Form Fields */}
-          <div className="flex-1 space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Ürün Başlığı
-              </label>
+          {/* Right side: Inputs */}
+          <div className="flex flex-col gap-5">
+            <div className="relative">
+              <Type className="absolute left-3 top-3.5 w-4 h-4 text-blue-400" />
               <input
                 type="text"
+                placeholder="Ürün Adı"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Örn: Yazlık Elbise"
-                className="w-full rounded-xl border border-white/50 bg-white/60 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
+                className="w-full pl-9 pr-3 py-3 rounded-xl bg-white border border-blue-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none"
                 disabled={isSaving}
                 autoFocus
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Açıklama
-              </label>
-              <textarea
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Kısa ürün açıklaması..."
-                className="w-full rounded-xl border border-white/50 bg-white/60 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all resize-none"
+            <div className="relative">
+              <Layers className="absolute left-3 top-3.5 w-4 h-4 text-blue-400" />
+              <input
+                type="text"
+                placeholder="Kategori"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full pl-9 pr-3 py-3 rounded-xl bg-white border border-blue-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none"
                 disabled={isSaving}
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Fiyat (₺)
-              </label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-3.5 w-4 h-4 text-blue-400" />
               <input
                 type="number"
                 step="0.01"
+                placeholder="Fiyat (₺)"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-                className="w-full rounded-xl border border-white/50 bg-white/60 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none transition-all"
+                className="w-full pl-9 pr-3 py-3 rounded-xl bg-white border border-blue-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none"
                 disabled={isSaving}
               />
             </div>
+
+            <textarea
+              placeholder="Ürün açıklaması (malzeme, boyut, kullanım vb.)"
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-xl bg-white border border-blue-200 px-3 py-3 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none resize-none"
+              disabled={isSaving}
+            />
           </div>
         </div>
 
-        {/* Buttons */}
-        <div className="mt-6 flex justify-end gap-3">
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-8 py-5 border-t border-blue-100 bg-blue-50">
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="px-5 py-2 rounded-xl border border-white/40 bg-white/40 text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 text-[15px] rounded-xl text-gray-600 hover:bg-blue-100 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             İptal
           </button>
           <button 
-            onClick={handleSaveAndAddAnother}
-            disabled={isSaving}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-          >
-            {isSaving ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Kaydediliyor...
-              </span>
-            ) : (
-              'Kaydet ve Yeni Ekle'
-            )}
-          </button>
-          <button 
             onClick={handleSave}
             disabled={isSaving}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="px-6 py-2.5 text-[15px] font-semibold rounded-xl bg-blue-500 hover:bg-orange-400 text-white shadow-md hover:shadow-lg transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {isSaving ? (
               <span className="flex items-center gap-2">
