@@ -384,18 +384,26 @@ const ProfilePage = () => {
     }
   };
 
-  const ProductForm = () => {
-    const handleTitleChange = (e) => {
+  const ProductForm = React.memo(() => {
+    const handleTitleChange = React.useCallback((e) => {
       setNewProduct(prev => ({ ...prev, title: e.target.value }));
-    };
+    }, []);
 
-    const handleDescriptionChange = (e) => {
+    const handleDescriptionChange = React.useCallback((e) => {
       setNewProduct(prev => ({ ...prev, description: e.target.value }));
-    };
+    }, []);
 
-    const handlePriceChange = (e) => {
+    const handlePriceChange = React.useCallback((e) => {
       setNewProduct(prev => ({ ...prev, price: e.target.value }));
-    };
+    }, []);
+
+    const handleRemoveImage = React.useCallback(() => {
+      setNewProduct(prev => ({ ...prev, image_url: '' }));
+    }, []);
+
+    const handleImageClick = React.useCallback(() => {
+      productImageInputRef.current?.click();
+    }, []);
 
     return (
   <form onSubmit={handleCreateProduct} className="space-y-4 bg-white/30 backdrop-blur-xl p-6 rounded-2xl border border-white/40 shadow-[0_2px_15px_rgba(0,0,0,0.05)] animate-fade-in">
@@ -416,14 +424,14 @@ const ProfilePage = () => {
               size="sm"
               variant="secondary"
               className="absolute top-2 right-2"
-              onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
+              onClick={handleRemoveImage}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         ) : (
           <div 
-            onClick={() => productImageInputRef.current?.click()}
+            onClick={handleImageClick}
             className="w-full aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 cursor-pointer flex flex-col items-center justify-center bg-gray-50 transition-colors"
           >
             {isUploadingProductImage ? (
@@ -475,7 +483,7 @@ const ProfilePage = () => {
         </div>
       </form>
     );
-  };
+  });
 
   const handleShareProfile = () => {
     const url = window.location.href;
