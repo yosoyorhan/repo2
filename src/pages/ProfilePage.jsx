@@ -703,8 +703,8 @@ const ProfilePage = () => {
                 {streams.map((stream) => (
                   <motion.div
                     key={stream.id}
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white rounded-xl overflow-hidden shadow-md cursor-pointer"
+                    whileHover={{ scale: 1.02, y: -4 }}
+                    className="bg-[rgba(255,255,255,0.98)] rounded-[16px] overflow-hidden shadow-[0_4px_12px_rgba(16,24,40,0.06)] hover:shadow-[0_8px_30px_rgba(16,24,40,0.08)] cursor-pointer transition-all duration-200"
                     onClick={() => navigate(`/live/${stream.id}`)}
                   >
                     <div className={`bg-gradient-to-br ${stream.status === 'active' ? 'from-red-500 to-pink-500' : 'from-gray-400 to-gray-600'} aspect-video flex items-center justify-center relative`}>
@@ -794,8 +794,8 @@ const ProfilePage = () => {
                   {products.map(prod => (
                     <motion.div
                       key={prod.id}
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-white rounded-xl shadow-md overflow-hidden border cursor-pointer"
+                      whileHover={{ scale: 1.02, y: -4 }}
+                      className="bg-[rgba(255,255,255,0.98)] rounded-[16px] shadow-[0_4px_12px_rgba(16,24,40,0.06)] hover:shadow-[0_8px_30px_rgba(16,24,40,0.08)] overflow-hidden border border-white/40 cursor-pointer transition-all duration-200"
                     >
                       <div className="aspect-video bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl relative">
                         {prod.image_url ? (
@@ -808,7 +808,7 @@ const ProfilePage = () => {
                         <h3 className="font-semibold text-gray-900 line-clamp-2">{prod.title}</h3>
                         {prod.description && <p className="text-sm text-gray-600 line-clamp-3">{prod.description}</p>}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-purple-600 font-semibold">₺{Number(prod.price).toFixed(2)}</span>
+                          <span className="text-transparent bg-gradient-to-r from-[#7b3fe4] to-[#e53dd2] bg-clip-text font-bold text-lg">₺{Number(prod.price).toFixed(2)}</span>
                           <span className="text-xs text-gray-500">{new Date(prod.created_at).toLocaleDateString('tr-TR')}</span>
                         </div>
                       </div>
@@ -828,21 +828,21 @@ const ProfilePage = () => {
                       <Package className="h-4 w-4 mr-2" /> Koleksiyon Oluştur
                     </Button>
                   ) : (
-                    <form onSubmit={handleCreateCollection} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
+                    <form onSubmit={handleCreateCollection} className="space-y-4 bg-[rgba(255,255,255,0.65)] backdrop-blur-xl p-6 rounded-[24px] border border-white/40 shadow-lg transition-all duration-300">
                       <div>
-                        <label className="text-sm font-medium text-gray-700">Koleksiyon Adı</label>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Koleksiyon Adı</label>
                         <input
                           type="text"
-                          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500 px-3 py-2 border"
+                          className="input mt-1 w-full rounded-[14px] border border-[rgba(16,24,40,0.06)] bg-[rgba(255,255,255,0.9)] px-4 py-3 shadow-inner focus:border-[#7b3fe4] focus:shadow-[0_6px_20px_rgba(123,63,228,0.06)] transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0 focus:outline-none"
                           value={newCollection.name}
                           onChange={e => setNewCollection(p => ({ ...p, name: e.target.value }))}
                           placeholder="Örn: Yaz Koleksiyonu"
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700">Açıklama</label>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
                         <textarea
-                          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500 px-3 py-2 border"
+                          className="input mt-1 w-full rounded-[14px] border border-[rgba(16,24,40,0.06)] bg-[rgba(255,255,255,0.9)] px-4 py-3 shadow-inner focus:border-[#7b3fe4] focus:shadow-[0_6px_20px_rgba(123,63,228,0.06)] transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0 focus:outline-none"
                           rows={3}
                           value={newCollection.description}
                           onChange={e => setNewCollection(p => ({ ...p, description: e.target.value }))}
@@ -850,8 +850,8 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <Button type="button" variant="outline" onClick={() => setIsCreatingCollection(false)}>İptal</Button>
-                        <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Oluştur</Button>
+                        <Button type="button" variant="outline" onClick={() => setIsCreatingCollection(false)} className="rounded-full bg-white/20 border border-white/40 hover:bg-gray-100 backdrop-blur-lg transition-all min-h-[44px]">İptal</Button>
+                        <Button type="submit" className="rounded-full bg-gradient-to-r from-[#7b3fe4] to-[#e53dd2] text-white shadow-lg hover:shadow-xl hover:scale-105 hover:-translate-y-0.5 focus:shadow-[0_0_10px_rgba(123,63,228,0.5)] transition-all min-h-[44px]">Oluştur</Button>
                       </div>
                     </form>
                   )}
@@ -867,10 +867,10 @@ const ProfilePage = () => {
                   {collections.map(collection => (
                     <motion.div
                       key={collection.id}
-                      whileHover={{ scale: 1.01 }}
-                      className="bg-white rounded-xl shadow-md border overflow-hidden"
+                      whileHover={{ scale: 1.01, y: -2 }}
+                      className="bg-[rgba(255,255,255,0.98)] rounded-[16px] shadow-[0_4px_12px_rgba(16,24,40,0.06)] hover:shadow-[0_8px_30px_rgba(16,24,40,0.08)] border border-white/40 overflow-hidden transition-all duration-200"
                     >
-                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
+                      <div className="bg-gradient-to-r from-[#7b3fe4] to-[#e53dd2] p-4 text-white">
                         <h3 className="font-bold text-lg">{collection.name}</h3>
                         {collection.description && <p className="text-sm text-white/80 mt-1">{collection.description}</p>}
                         <div className="flex items-center gap-4 mt-2 text-sm">

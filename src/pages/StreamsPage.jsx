@@ -74,8 +74,8 @@ const StreamsPage = () => {
   return (
     <div className="container mx-auto p-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Canlı Yayınlar</h1>
-        <Button onClick={createStream} disabled={creating || !user} className="bg-[#FFDE59] text-gray-900 hover:bg-[#FFD700] rounded-full">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#7b3fe4] to-[#e53dd2] bg-clip-text text-transparent">Canlı Yayınlar</h1>
+        <Button onClick={createStream} disabled={creating || !user}>
           {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
           Yeni Yayın Başlat
         </Button>
@@ -83,10 +83,10 @@ const StreamsPage = () => {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-[#FFDE59]" />
+          <Loader2 className="h-12 w-12 animate-spin text-[#7b3fe4]" />
         </div>
       ) : streams.length === 0 ? (
-        <div className="text-center py-16 bg-gray-100 rounded-2xl">
+        <div className="text-center py-16 bg-[rgba(255,255,255,0.65)] backdrop-blur-xl rounded-[24px] border border-white/40 shadow-lg">
           <Video className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-xl font-semibold">Şu anda aktif yayın bulunmuyor.</h3>
           <p className="text-gray-500 mt-2">İlk yayını sen başlat!</p>
@@ -99,11 +99,12 @@ const StreamsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ scale: 1.02, y: -4 }}
             >
               <Link to={`/live/${stream.id}`}>
-                <div className="bg-white rounded-2xl p-4 border border-transparent hover:border-[#FFDE59] transition-all cursor-pointer shadow-sm hover:shadow-lg">
-                  <div className="aspect-video bg-black rounded-lg mb-4 flex items-center justify-center relative">
-                    <Video className="h-12 w-12 text-white" />
+                <div className="bg-[rgba(255,255,255,0.98)] rounded-[16px] p-4 border border-white/40 hover:border-[#7b3fe4]/30 transition-all cursor-pointer shadow-[0_4px_12px_rgba(16,24,40,0.06)] hover:shadow-[0_8px_30px_rgba(16,24,40,0.08)]">
+                  <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-[12px] mb-4 flex items-center justify-center relative">
+                    <Video className="h-12 w-12 text-white/60" />
                      <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                         <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                         CANLI
