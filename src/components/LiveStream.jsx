@@ -863,7 +863,8 @@ const LiveStream = ({ streamId }) => {
               event: 'UPDATE',
               schema: 'public',
               table: 'products',
-              filter: `id=in.(${productIds.join(',')})`
+              // UUID listelerinde in. filtresi için değerleri tırnaklamak gerekir
+              filter: `id=in.(${productIds.map(id => `'${id}'`).join(',')})`
             }, (payload) => {
               console.log('🔄 Product updated:', payload.new);
               setViewerCollectionProducts(prev => prev.map(p =>
