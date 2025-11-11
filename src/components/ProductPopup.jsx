@@ -1,8 +1,85 @@
 import React, { useState, useRef } from 'react';
-import { X, ImagePlus, Layers, DollarSign, Type, Loader2 } from 'lucide-react';
+import { X, ImagePlus, Layers, DollarSign, Type, Loader2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+
+const CATEGORIES = {
+  'Trading Card Games': [
+    'Pokémon', 'Yu-Gi-Oh!', 'Magic: The Gathering', 'Disney Lorcana',
+    'One Piece Card Game', 'Dragon Ball Super', 'Flesh and Blood',
+    'Cardfight!! Vanguard', 'Weiss Schwarz', 'Final Fantasy TCG',
+    'Digimon Card Game', 'Star Wars: Unlimited', 'MetaZoo',
+    'Keyforge', 'Legend of the Five Rings', 'VS System 2PCG',
+    'Warhammer 40K', 'Bandai One Piece', 'Union Arena', 'Other TCG'
+  ],
+  'Sports Cards & Memorabilia': [
+    'Basketball', 'Football', 'Baseball', 'Soccer', 'Hockey',
+    'UFC/MMA', 'Wrestling', 'Racing', 'Golf', 'Multi-Sport',
+    'Autographs', 'Jerseys', 'Other Sports'
+  ],
+  'Fashion & Apparel': [
+    "Women's Clothing", "Men's Clothing", 'Sneakers & Athletic Shoes',
+    'Luxury Bags & Accessories', 'Vintage Fashion', 'Streetwear',
+    'Designer Clothing', 'Boots & Casual Shoes', 'Kids Fashion'
+  ],
+  'Jewelry & Watches': [
+    'Fine Jewelry', 'Fashion Jewelry', 'Luxury Watches', 'Vintage Watches',
+    'Smart Watches', 'Costume Jewelry', 'Gemstones', 'Custom Jewelry'
+  ],
+  'Toys & Hobbies': [
+    'Action Figures', 'LEGO', 'Funko Pop', 'Model Kits', 'RC Vehicles',
+    'Trading Card Supplies', 'Vintage Toys', 'Diecast Models',
+    'Building Sets', 'Collectible Figures'
+  ],
+  'Electronics & Gaming': [
+    'Video Games', 'Consoles', 'Gaming Accessories', 'Computers',
+    'Smartphones & Tablets', 'Audio Equipment', 'Cameras',
+    'Smart Home', 'Retro Gaming', 'PC Components'
+  ],
+  'Comics, Manga & Books': [
+    'Marvel Comics', 'DC Comics', 'Independent Comics', 'Manga',
+    'Graphic Novels', 'Vintage Comics', 'Graded Comics',
+    'Light Novels', 'Art Books', 'Rare Books'
+  ],
+  'Home & Garden': [
+    'Furniture', 'Home Decor', 'Kitchen & Dining', 'Bedding & Bath',
+    'Storage & Organization', 'Lighting', 'Garden Tools',
+    'Outdoor Furniture', 'Plants & Planters'
+  ],
+  'Arts & Handmade': [
+    'Original Art', 'Prints & Posters', 'Sculptures', 'Ceramics & Pottery',
+    'Handmade Jewelry', 'Textiles & Fiber Arts', 'Photography',
+    'Mixed Media', 'Digital Art', 'Art Supplies'
+  ],
+  'Beauty & Personal Care': [
+    'Makeup', 'Skincare', 'Haircare', 'Fragrances', 'Nail Care',
+    'Bath & Body', 'Beauty Tools', 'Korean Beauty', 'Luxury Beauty'
+  ],
+  'Food & Beverages': [
+    'Gourmet Foods', 'Specialty Snacks', 'Coffee & Tea', 'Wine & Spirits',
+    'Craft Beer', 'Artisan Foods', 'International Foods',
+    'Baking Supplies', 'Health Foods'
+  ],
+  'Coins & Currency': [
+    'US Coins', 'World Coins', 'Ancient Coins', 'Paper Money',
+    'Bullion', 'Tokens & Medals', 'Rare Currency', 'Coin Supplies'
+  ],
+  'Estate Sales & Wholesale': [
+    'Estate Jewelry', 'Antique Furniture', 'Vintage Items',
+    'Bulk Lots', 'Liquidation', 'Mixed Lots', 'Wholesale Goods'
+  ],
+  'Outdoor & Sporting Goods': [
+    'Camping & Hiking', 'Fishing', 'Hunting', 'Cycling',
+    'Water Sports', 'Winter Sports', 'Fitness Equipment',
+    'Team Sports', 'Golf Equipment'
+  ],
+  'Baby, Kids & Pets': [
+    'Baby Gear', 'Kids Toys', 'Baby Clothing', 'Pet Supplies',
+    'Pet Toys', 'Board Games', 'Puzzles', 'Educational Toys',
+    'Nursery Decor', 'Pet Accessories'
+  ]
+};
 
 export default function ProductPopup({ onClose, onProductAdded }) {
   const { user } = useAuth();
@@ -15,8 +92,12 @@ export default function ProductPopup({ onClose, onProductAdded }) {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);  const handleImageChange = (e) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const selectedMainCategory = category.split(' > ')[0];
+  const availableSubcategories = selectedMainCategory ? CATEGORIES[selectedMainCategory] || [] : [];  const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
@@ -149,6 +230,7 @@ export default function ProductPopup({ onClose, onProductAdded }) {
           title: title.trim(),
           description: description.trim() || null,
           price: priceNumber,
+          category: category || null,
           image_url: imageUrl
         })
         .select()
@@ -169,6 +251,8 @@ export default function ProductPopup({ onClose, onProductAdded }) {
       setTitle('');
       setDescription('');
       setPrice('');
+      setCategory('');
+      setSubcategory('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -247,16 +331,46 @@ export default function ProductPopup({ onClose, onProductAdded }) {
             </div>
 
             <div className="relative">
-              <Layers className="absolute left-3 top-3.5 w-4 h-4 text-blue-400" />
-              <input
-                type="text"
-                placeholder="Kategori"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full pl-9 pr-3 py-3 rounded-xl bg-white border border-blue-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none"
+              <Layers className="absolute left-3 top-3.5 w-4 h-4 text-blue-400 z-10 pointer-events-none" />
+              <select
+                value={selectedMainCategory}
+                onChange={(e) => {
+                  const main = e.target.value;
+                  setCategory(main);
+                  setSubcategory('');
+                }}
+                className="w-full pl-9 pr-10 py-3 rounded-xl bg-white border border-blue-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none appearance-none cursor-pointer"
                 disabled={isSaving}
-              />
+              >
+                <option value="">Ana Kategori Seçin</option>
+                {Object.keys(CATEGORIES).map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
+
+            {selectedMainCategory && (
+              <div className="relative">
+                <Layers className="absolute left-3 top-3.5 w-4 h-4 text-orange-400 z-10 pointer-events-none" />
+                <select
+                  value={subcategory}
+                  onChange={(e) => {
+                    const sub = e.target.value;
+                    setSubcategory(sub);
+                    setCategory(`${selectedMainCategory} > ${sub}`);
+                  }}
+                  className="w-full pl-9 pr-10 py-3 rounded-xl bg-white border border-orange-200 text-[15px] focus:ring-2 focus:ring-orange-400 focus:outline-none appearance-none cursor-pointer"
+                  disabled={isSaving}
+                >
+                  <option value="">Alt Kategori Seçin</option>
+                  {availableSubcategories.map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-orange-400 pointer-events-none" />
+              </div>
+            )}
 
             <div className="relative">
               <DollarSign className="absolute left-3 top-3.5 w-4 h-4 text-blue-400" />
