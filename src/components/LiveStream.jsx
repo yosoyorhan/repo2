@@ -834,17 +834,19 @@ const LiveStream = ({ streamId }) => {
 
     try {
       // Kazananı belirle (en yüksek teklif sahibi)
-      const { data: highestBid } = await supabase
+      const { data: highestBid, error: bidError } = await supabase
         .from('bids')
-        .select('*, profiles:user_id(username, avatar_url)')
+        .select('*')
         .eq('auction_id', activeAuction.id)
         .order('amount', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      console.log('🏆 Highest bid:', highestBid, 'Error:', bidError);
 
       if (highestBid) {
         // Auction'ı kapat ve kazananı kaydet
-        await supabase
+        const { error: updateError } = await supabase
           .from('auctions')
           .update({ 
             status: 'ended', 
@@ -853,7 +855,17 @@ const LiveStream = ({ streamId }) => {
           })
           .eq('id', activeAuction.id);
 
-        setAuctionWinner(highestBid);
+        console.log('📝 Auction updated, error:', updateError);
+
+        // Winner bilgisini current_winner_username'den al
+        const winnerData = {
+          ...highestBid,
+          profiles: {
+            username: activeAuction.current_winner_username || 'Anonim'
+          }
+        };
+
+        setAuctionWinner(winnerData);
         setShowWinnerModal(true);
         
         toast({ 
