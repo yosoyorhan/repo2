@@ -230,7 +230,7 @@ const ProfilePage = () => {
     }
   };
 
-  const handleCreateProduct = async (e) => {
+  const handleCreateProduct = async (e, addAnother = false) => {
     e.preventDefault();
     if (!user) {
       toast({ title: 'Giriş yapmalısınız', variant: 'destructive' });
@@ -261,8 +261,14 @@ const ProfilePage = () => {
       if (error) throw error;
       setProducts(prev => [data, ...prev]);
       setNewProduct({ title: '', description: '', price: '', image_url: '' });
-      setIsAddingProduct(false);
-      toast({ title: 'Ürün eklendi ✅' });
+      
+      if (addAnother) {
+        toast({ title: '✅ Ürün eklendi', description: 'Yeni ürün ekleyebilirsin' });
+        // Form açık kalacak
+      } else {
+        setIsAddingProduct(false);
+        toast({ title: 'Ürün eklendi ✅' });
+      }
     } catch (error) {
       console.error('Error adding product:', error);
       toast({ title: 'Ürün eklenemedi', description: error.message, variant: 'destructive' });
@@ -344,10 +350,15 @@ const ProfilePage = () => {
         .select()
         .single();
       if (error) throw error;
-      setCollections(prev => [{ ...data, collection_products: [] }, ...prev]);
+      const newCollectionWithProducts = { ...data, collection_products: [] };
+      setCollections(prev => [newCollectionWithProducts, ...prev]);
       setNewCollection({ name: '', description: '' });
       setIsCreatingCollection(false);
-      toast({ title: 'Koleksiyon oluşturuldu ✅' });
+      toast({ title: '✅ Koleksiyon oluşturuldu', description: 'Şimdi ürün ekleyebilirsin' });
+      
+      // Otomatik olarak ürün ekleme modal'ını aç
+      setSelectedCollection(newCollectionWithProducts);
+      setShowProductSelector(true);
     } catch (error) {
       console.error('Error creating collection:', error);
       toast({ title: 'Koleksiyon oluşturulamadı', description: error.message, variant: 'destructive' });
@@ -479,6 +490,7 @@ const ProfilePage = () => {
         </div>
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)} className="rounded-2xl bg-white/20 border border-white/40 hover:bg-gray-100 backdrop-blur-lg transition-all">İptal</Button>
+          <Button type="button" onClick={(e) => handleCreateProduct(e, true)} className="rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all">Kaydet ve Yeni Ekle</Button>
           <Button type="submit" className="rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 focus:shadow-[0_0_10px_rgba(123,63,228,0.5)] transition-all">Kaydet</Button>
         </div>
       </form>
