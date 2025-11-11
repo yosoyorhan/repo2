@@ -663,23 +663,56 @@ const LiveStream = ({ streamId }) => {
 
   const placeBid = async (customAmount = null) => {
     if (!user || !activeAuction) return;
-    const amount = customAmount !== null ? customAmount : parseFloat(bidAmount);
-    if (isNaN(amount) || amount <= activeAuction.current_price) {
-      toast({ title: 'Teklif mevcut fiyattan yüksek olmalı', variant: 'destructive' });
+    
+    // Eğer customAmount verilmişse increment olarak kullan, yoksa input'tan al
+    const increment = customAmount !== null ? customAmount : parseFloat(bidAmount);
+    
+    if (isNaN(increment) || increment <= 0) {
+      toast({ title: 'Teklif 0\'dan büyük olmalı', variant: 'destructive' });
       return;
     }
+    
+    const newPrice = activeAuction.current_price + increment;
+    
     try {
-      const { error } = await supabase
+      const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Anonim';
+      
+      // Bid ekle
+      const { error: bidError } = await supabase
         .from('bids')
         .insert({
           auction_id: activeAuction.id,
           user_id: user.id,
-          amount: amount
+          amount: newPrice,
+          increment: increment
         });
       
-      if (error) throw error;
+      if (bidError) throw bidError;
+      
+      // Auction'ı güncelle
+      const { error: auctionError } = await supabase
+        .from('auctions')
+        .update({ 
+          current_price: newPrice,
+          current_winner_id: user.id,
+          current_winner_username: username
+        })
+        .eq('id', activeAuction.id);
+      
+      if (auctionError) throw auctionError;
+      
+      // Chat'e sistem mesajı gönder
+      await supabase
+        .from('stream_messages')
+        .insert({
+          stream_id: streamId,
+          user_id: user.id,
+          content: `💰 ${username} ₺${newPrice.toFixed(2)} teklif verdi! (+₺${increment.toFixed(2)})`,
+          is_system: true
+        });
+      
       setBidAmount('');
-      toast({ title: '✅ Teklif verildi!' });
+      toast({ title: '✅ Teklif verildi!', description: `₺${newPrice.toFixed(2)}` });
     } catch (error) {
       console.error('Error placing bid:', error);
       toast({ title: 'Teklif verilemedi', variant: 'destructive' });
@@ -687,8 +720,7 @@ const LiveStream = ({ streamId }) => {
   };
 
   const quickBid = (increment) => {
-    const newAmount = (activeAuction?.current_price || 0) + increment;
-    placeBid(newAmount);
+    placeBid(increment);
   };
 
   // Subscribe to active auction
@@ -713,6 +745,9 @@ const LiveStream = ({ streamId }) => {
     };
     
     fetchActiveAuction();
+    
+    // 1 saniyelik polling (realtime yedek)
+    const pollingInterval = setInterval(fetchActiveAuction, 1000);
     
     // Realtime subscription for auction updates - instant updates!
     const channel = supabase
@@ -749,6 +784,7 @@ const LiveStream = ({ streamId }) => {
     setAuctionChannel(channel);
     
     return () => {
+      clearInterval(pollingInterval);
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
@@ -1171,10 +1207,18 @@ const LiveStream = ({ streamId }) => {
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
-                {activeAuction.current_winner_id && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Lider: {activeAuction.current_winner_id === user?.id ? 'Siz 🏆' : activeAuction.current_winner_id.slice(0, 8) + '...'}
-                  </p>
+                {activeAuction.current_winner_username && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                      <span className="text-xs">👑</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      {activeAuction.current_winner_id === user?.id 
+                        ? <span className="text-green-600">Siz öndesiniz! 🏆</span>
+                        : <span>{activeAuction.current_winner_username}</span>
+                      }
+                    </p>
+                  </div>
                 )}
               </div>
               

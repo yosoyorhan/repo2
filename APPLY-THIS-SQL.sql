@@ -55,24 +55,36 @@ USING (
 -- PART 2: Enhanced Auction System with Timer
 -- =====================================================
 
--- 8. Add timer fields to auctions table
+-- 8. Add is_system column to stream_messages for bid notifications
+ALTER TABLE stream_messages
+ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE;
+
+-- 9. Add timer fields to auctions table
 ALTER TABLE auctions 
 ADD COLUMN IF NOT EXISTS timer_seconds INTEGER DEFAULT 30,
 ADD COLUMN IF NOT EXISTS timer_started_at TIMESTAMPTZ;
 
--- 9. Add winner tracking to auctions
+-- 10. Add winner tracking to auctions
 ALTER TABLE auctions
 ADD COLUMN IF NOT EXISTS winner_user_id UUID REFERENCES auth.users(id);
 
--- 10. Add winner_user_id to products table
+-- 11. Add winner_user_id to products table
 ALTER TABLE products
 ADD COLUMN IF NOT EXISTS winner_user_id UUID REFERENCES auth.users(id),
 ADD COLUMN IF NOT EXISTS is_sold BOOLEAN DEFAULT FALSE;
 
--- PART 3: Sales System
+-- PART 3: Sales System & Bids Enhancement
 -- =====================================================
 
--- 11. Create sales table for completed transactions
+-- 12. Update bids table to track incremental bids properly
+ALTER TABLE bids 
+ADD COLUMN IF NOT EXISTS increment DECIMAL(10,2);
+
+-- 13. Update auctions to track current winner better
+ALTER TABLE auctions
+ADD COLUMN IF NOT EXISTS current_winner_username TEXT;
+
+-- 14. Create sales table for completed transactions
 CREATE TABLE IF NOT EXISTS sales (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES auth.users(id),
@@ -84,16 +96,18 @@ CREATE TABLE IF NOT EXISTS sales (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 12. Add indexes for performance
+-- 15. Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_sales_seller ON sales(seller_id);
 CREATE INDEX IF NOT EXISTS idx_sales_buyer ON sales(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_sales_product ON sales(product_id);
 CREATE INDEX IF NOT EXISTS idx_sales_sold_at ON sales(sold_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bids_auction ON bids(auction_id);
+CREATE INDEX IF NOT EXISTS idx_bids_user ON bids(user_id);
 
--- 13. Enable RLS on sales table
+-- 16. Enable RLS on sales table
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 
--- 14. Sales table policies
+-- 17. Sales table policies
 DROP POLICY IF EXISTS "Users can view their own sales" ON sales;
 CREATE POLICY "Users can view their own sales"
 ON sales FOR SELECT

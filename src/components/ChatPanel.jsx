@@ -31,11 +31,19 @@ const ChatPanel = ({ streamId }) => {
             .eq('stream_id', streamId)
             .order('created_at', { ascending: true });
         
-        if (!error) {
-            setChatMessages(data);
+        if (!error && data) {
+            // Sadece yeni mesajları ekle (duplicate önleme)
+            setChatMessages(prevMessages => {
+              const existingIds = new Set(prevMessages.map(m => m.id));
+              const newMessages = data.filter(m => !existingIds.has(m.id));
+              return newMessages.length > 0 ? data : prevMessages;
+            });
         }
     };
     fetchMessages();
+    
+    // 1 saniyelik polling (realtime yedek)
+    const pollingInterval = setInterval(fetchMessages, 1000);
 
     // Subscribe to new messages (realtime) - Supabase realtime is instant!
     const messageChannel = supabase.channel(`public:stream_messages:stream=${streamId}`)
@@ -71,6 +79,7 @@ const ChatPanel = ({ streamId }) => {
     });
 
     return () => {
+      clearInterval(pollingInterval);
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(presenceChannel);
     };
