@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2 } from 'lucide-react';
+import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -12,11 +13,13 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const fileInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const isOwnProfile = user && profile && user.id === profile.id;
 
@@ -143,6 +146,69 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAvatarClick = () => {
+    if (isOwnProfile) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Dosya çok büyük', description: 'Maksimum 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile({ ...profile, avatar_url: publicUrl });
+      toast({ title: 'Profil fotoğrafı güncellendi! 📸' });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({ title: 'Yükleme başarısız', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleShareProfile = () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: `${profile?.username || 'Kullanıcı'} - Profil`,
+        text: profile?.bio || 'Profili görüntüle',
+        url: url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url);
+      toast({ title: 'Link kopyalandı! 🔗' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -172,15 +238,36 @@ const ProfilePage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-2xl shadow-xl p-6 sm:p-8"
           >
+            {/* Hidden file input for avatar upload */}
+            <input 
+              ref={fileInputRef} 
+              type="file" 
+              accept="image/*" 
+              onChange={handleAvatarUpload} 
+              className="hidden" 
+            />
+            
             {/* Avatar and basic info */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
               {/* Avatar */}
               <div className="relative">
-                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-5xl font-bold shadow-lg">
+                <div 
+                  className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-5xl font-bold shadow-lg ${isOwnProfile ? 'cursor-pointer group' : ''}`}
+                  onClick={isOwnProfile ? handleAvatarClick : undefined}
+                >
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} alt={profile.username} className="w-full h-full rounded-full object-cover" />
                   ) : (
                     profile.username?.[0]?.toUpperCase() || 'U'
+                  )}
+                  {isOwnProfile && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full transition-opacity">
+                      {isUploadingAvatar ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-white" />
+                      ) : (
+                        <Camera className="h-8 w-8 text-white" />
+                      )}
+                    </div>
                   )}
                 </div>
                 {isOwnProfile && (
@@ -198,29 +285,42 @@ const ProfilePage = () => {
               {/* Info */}
               <div className="flex-1 text-center sm:text-left">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <h1 className="text-3xl font-bold text-gray-900">{profile.username || 'Kullanıcı'}</h1>
-                    <p className="text-gray-500 mt-1">{profile.email}</p>
+                    {profile.is_verified && (
+                      <BadgeCheck className="h-6 w-6 text-blue-500" />
+                    )}
                   </div>
+                  <p className="text-gray-500 mt-1">{profile.email}</p>
                   
-                  {!isOwnProfile && user && (
+                  <div className="flex items-center gap-2">
+                    {!isOwnProfile && user && (
+                      <Button
+                        onClick={handleFollow}
+                        className={`rounded-full min-h-[44px] ${isFollowing ? 'bg-gray-200 text-gray-900 hover:bg-gray-300' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                      >
+                        {isFollowing ? (
+                          <>
+                            <UserMinus className="h-5 w-5 mr-2" />
+                            Takibi Bırak
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="h-5 w-5 mr-2" />
+                            Takip Et
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
-                      onClick={handleFollow}
-                      className={`rounded-full min-h-[44px] ${isFollowing ? 'bg-gray-200 text-gray-900 hover:bg-gray-300' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleShareProfile}
+                      className="rounded-full"
                     >
-                      {isFollowing ? (
-                        <>
-                          <UserMinus className="h-5 w-5 mr-2" />
-                          Takibi Bırak
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-5 w-5 mr-2" />
-                          Takip Et
-                        </>
-                      )}
+                      <Share2 className="h-5 w-5" />
                     </Button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Stats */}
@@ -270,48 +370,111 @@ const ProfilePage = () => {
           </motion.div>
         </div>
 
-        {/* Streams Section */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <Video className="h-6 w-6" />
-            Son Yayınlar
-          </h2>
-          
-          {streams.length === 0 ? (
-            <div className="bg-white rounded-xl p-12 text-center">
-              <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Henüz yayın yok</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {streams.map((stream) => (
-                <motion.div
-                  key={stream.id}
-                  whileHover={{ scale: 1.02 }}
-                  className="bg-white rounded-xl overflow-hidden shadow-md cursor-pointer"
-                  onClick={() => navigate(`/live/${stream.id}`)}
-                >
-                  <div className={`bg-gradient-to-br ${stream.status === 'active' ? 'from-red-500 to-pink-500' : 'from-gray-400 to-gray-600'} aspect-video flex items-center justify-center relative`}>
-                    <Video className="h-12 w-12 text-white/80" />
-                    {stream.status === 'active' && (
-                      <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                        <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                        CANLI
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{stream.title}</h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(stream.created_at).toLocaleDateString('tr-TR')}
+        {/* Tabs Section */}
+        <Tabs defaultValue="streams" className="mb-12">
+          <TabsList className="bg-white border-b w-full justify-start rounded-none h-auto p-0">
+            <TabsTrigger 
+              value="streams" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <Video className="h-4 w-4 mr-2" />
+              Yayınlar
+            </TabsTrigger>
+            <TabsTrigger 
+              value="about" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <User className="h-4 w-4 mr-2" />
+              Hakkında
+            </TabsTrigger>
+            <TabsTrigger 
+              value="activity" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Aktivite
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="streams" className="mt-6">
+            {streams.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center">
+                <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Henüz yayın yok</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {streams.map((stream) => (
+                  <motion.div
+                    key={stream.id}
+                    whileHover={{ scale: 1.02 }}
+                    className="bg-white rounded-xl overflow-hidden shadow-md cursor-pointer"
+                    onClick={() => navigate(`/live/${stream.id}`)}
+                  >
+                    <div className={`bg-gradient-to-br ${stream.status === 'active' ? 'from-red-500 to-pink-500' : 'from-gray-400 to-gray-600'} aspect-video flex items-center justify-center relative`}>
+                      <Video className="h-12 w-12 text-white/80" />
+                      {stream.status === 'active' && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                          CANLI
+                        </div>
+                      )}
                     </div>
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{stream.title}</h3>
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(stream.created_at).toLocaleDateString('tr-TR')}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="about" className="mt-6">
+            <div className="bg-white rounded-xl p-6 space-y-6">
+              {profile.bio && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Bio</h3>
+                  <p className="text-gray-600">{profile.bio}</p>
+                </div>
+              )}
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">İstatistikler</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{profile.followers_count || 0}</div>
+                    <div className="text-sm text-gray-600">Takipçi</div>
                   </div>
-                </motion.div>
-              ))}
+                  <div className="text-center p-4 bg-pink-50 rounded-lg">
+                    <div className="text-2xl font-bold text-pink-600">{profile.following_count || 0}</div>
+                    <div className="text-sm text-gray-600">Takip</div>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{streams.length}</div>
+                    <div className="text-sm text-gray-600">Yayın</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {new Date(profile.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="text-sm text-gray-600">Üyelik</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-6">
+            <div className="bg-white rounded-xl p-12 text-center">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Aktivite geçmişi yakında eklenecek</p>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Profile Modal - TODO: Implement edit form */}
