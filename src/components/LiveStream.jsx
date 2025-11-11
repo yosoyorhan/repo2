@@ -772,7 +772,9 @@ const LiveStream = ({ streamId }) => {
         table: 'auctions',
         filter: `stream_id=eq.${streamData.id}`
       }, payload => {
+        console.log('🔔 Auction realtime update:', payload);
         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          console.log('💰 Updating activeAuction:', payload.new);
           setActiveAuction(payload.new);
           if (!isPublisher) {
             toast({ 
@@ -870,7 +872,7 @@ const LiveStream = ({ streamId }) => {
         
         toast({ 
           title: '🎉 Açık artırma bitti!', 
-          description: `Kazanan: ${highestBid.profiles.username} - ₺${highestBid.amount}`
+          description: `Kazanan: ${winnerData.profiles.username} - ₺${highestBid.amount}`
         });
       } else {
         // Teklif yoksa sadece kapat
