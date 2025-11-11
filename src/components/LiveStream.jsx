@@ -216,6 +216,12 @@ const LiveStream = ({ streamId }) => {
           window.history.pushState(null, '', window.location.href);
         }
       }
+        
+        // Panel'i kapat ve state temizle
+        setTimeout(() => {
+          setActiveAuction(null);
+          setShowAuctionPanel(false);
+        }, 2500);
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('popstate', handlePopState);
@@ -966,6 +972,48 @@ const LiveStream = ({ streamId }) => {
           title: '🎉 Açık artırma bitti!', 
           description: `Kazanan: ${winnerUsername} - ₺${Number(highestBid.amount).toFixed(2)}`
         });
+
+          // Otomatik satış kaydı oluştur (yayıncı ise)
+          if (isPublisher) {
+            console.log('💾 Auto-creating sale record...');
+            const { error: saleError } = await supabase.from('sales').insert({
+              seller_id: streamData.user_id,
+              buyer_id: highestBid.user_id,
+              product_id: activeAuction.product_id,
+              auction_id: activeAuction.id,
+              final_price: highestBid.amount
+            });
+          
+            if (saleError) {
+              console.error('❌ Auto-sale error:', saleError);
+            } else {
+              console.log('✅ Sale auto-created');
+            
+              // Product'ı satıldı olarak işaretle
+              if (activeAuction.product_id) {
+                const { error: prodError } = await supabase
+                  .from('products')
+                  .update({ 
+                    is_sold: true, 
+                    winner_user_id: highestBid.user_id 
+                  })
+                  .eq('id', activeAuction.product_id);
+              
+                if (prodError) {
+                  console.error('⚠️ Product update error:', prodError);
+                } else {
+                  console.log('✅ Product marked as sold');
+                
+                  // Sol menüde ürünü pasifleştir
+                  setCollectionProducts(prev => prev.map(p => 
+                    p.id === activeAuction.product_id 
+                      ? { ...p, is_sold: true, winner_user_id: highestBid.user_id } 
+                      : p
+                  ));
+                }
+              }
+            }
+          }
       } else {
         // Teklif yoksa sadece kapat
         await supabase
@@ -974,6 +1022,9 @@ const LiveStream = ({ streamId }) => {
           .eq('id', activeAuction.id);
         
         toast({ title: 'Açık artırma sona erdi', description: 'Teklif verilmedi' });
+        
+          setActiveAuction(null);
+          setShowAuctionPanel(false);
       }
     } catch (error) {
       console.error('Error ending auction:', error);
