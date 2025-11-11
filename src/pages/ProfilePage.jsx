@@ -30,6 +30,8 @@ const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [soldItems, setSoldItems] = useState([]);
+  const [purchasedItems, setPurchasedItems] = useState([]);
 
   const isOwnProfile = user && profile && user.id === profile.id;
 
@@ -39,6 +41,8 @@ const ProfilePage = () => {
     fetchActiveStreams();
     fetchProducts();
     fetchCollections();
+    fetchSoldItems();
+    fetchPurchasedItems();
     if (user && userId) {
       checkFollowStatus();
     }
@@ -134,6 +138,32 @@ const ProfilePage = () => {
     } catch (error) {
       console.error('Error ending stream:', error);
       toast({ title: 'Yayın sonlandırılamadı', variant: 'destructive' });
+    }
+  };
+
+  const fetchSoldItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`*, products(*), profiles:buyer_id(*)`)
+        .eq('seller_id', userId);
+      if (error) throw error;
+      setSoldItems(data || []);
+    } catch (error) {
+      console.error('Error fetching sold items:', error);
+    }
+  };
+
+  const fetchPurchasedItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`*, products(*), profiles:seller_id(*)`)
+        .eq('buyer_id', userId);
+      if (error) throw error;
+      setPurchasedItems(data || []);
+    } catch (error) {
+      console.error('Error fetching purchased items:', error);
     }
   };
 
@@ -553,6 +583,20 @@ const ProfilePage = () => {
               <Package className="h-4 w-4 mr-2" />
               Koleksiyonlar
             </TabsTrigger>
+            <TabsTrigger
+              value="purchased"
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Satın Aldıklarım
+            </TabsTrigger>
+            <TabsTrigger
+              value="sold"
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Sattıklarım
+            </TabsTrigger>
             <TabsTrigger 
               value="about" 
               className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
@@ -826,6 +870,30 @@ const ProfilePage = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="purchased" className="mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {purchasedItems.map(item => (
+                <div key={item.id} className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-bold">{item.products.title}</h3>
+                  <p>Price: {item.final_price}</p>
+                  <p>Sold by: <a href={`/profile/${item.profiles.id}`}>{item.profiles.username}</a></p>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="sold" className="mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {soldItems.map(item => (
+                <div key={item.id} className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-bold">{item.products.title}</h3>
+                  <p>Price: {item.final_price}</p>
+                  <p>Purchased by: <a href={`/profile/${item.profiles.id}`}>{item.profiles.username}</a></p>
+                </div>
+              ))}
             </div>
           </TabsContent>
         </Tabs>

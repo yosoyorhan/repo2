@@ -760,9 +760,6 @@ const LiveStream = ({ streamId }) => {
     
     fetchActiveAuction();
     
-    // 1 saniyelik polling (realtime yedek)
-    const pollingInterval = setInterval(fetchActiveAuction, 1000);
-    
     // Realtime subscription for auction updates - instant updates!
     const channel = supabase
       .channel(`auction:${streamData.id}`)
@@ -800,7 +797,6 @@ const LiveStream = ({ streamId }) => {
     setAuctionChannel(channel);
     
     return () => {
-      clearInterval(pollingInterval);
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
@@ -826,7 +822,7 @@ const LiveStream = ({ streamId }) => {
         clearInterval(timerInterval);
         handleAuctionEnd();
       }
-    }, 100); // Her 100ms'de güncelle (smooth countdown)
+    }, 10); // Her 10ms'de güncelle (smooth countdown)
 
     return () => clearInterval(timerInterval);
   }, [activeAuction?.id, activeAuction?.status, activeAuction?.timer_started_at]);

@@ -41,9 +41,6 @@ const ChatPanel = ({ streamId }) => {
         }
     };
     fetchMessages();
-    
-    // 1 saniyelik polling (realtime yedek)
-    const pollingInterval = setInterval(fetchMessages, 1000);
 
     // Subscribe to new messages (realtime) - Supabase realtime is instant!
     const messageChannel = supabase.channel(`public:stream_messages:stream=${streamId}`)
@@ -79,7 +76,6 @@ const ChatPanel = ({ streamId }) => {
     });
 
     return () => {
-      clearInterval(pollingInterval);
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(presenceChannel);
     };
