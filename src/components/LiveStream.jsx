@@ -52,12 +52,16 @@ const LiveStream = ({ streamId }) => {
   const [collections, setCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [collectionProducts, setCollectionProducts] = useState([]);
+  // Viewer tarafı için, aktif açık artırmanın koleksiyon ürünleri
+  const [viewerCollectionProducts, setViewerCollectionProducts] = useState([]);
+  const [viewerCollectionName, setViewerCollectionName] = useState('');
   const [bidAmount, setBidAmount] = useState('');
   const [auctionBids, setAuctionBids] = useState([]);
   const [auctionChannel, setAuctionChannel] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [auctionWinner, setAuctionWinner] = useState(null);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [winnerFadeOut, setWinnerFadeOut] = useState(false);
   // Profil bilgisini tetikleyen kazanan (trigger sadece current_winner_id güncelliyor)
   const [winnerProfile, setWinnerProfile] = useState(null);
 
@@ -614,6 +618,7 @@ const LiveStream = ({ streamId }) => {
         .from('auctions')
         .insert({
           stream_id: streamId,
+          collection_id: selectedCollection.id,
           product_id: productId,
           starting_price: Number(product.price),
           current_price: Number(product.price),
@@ -800,6 +805,28 @@ const LiveStream = ({ streamId }) => {
     };
   }, [streamData?.id]);
 
+  // Viewer: aktif açık artırmanın koleksiyonundaki ürünleri yükle
+  useEffect(() => {
+    const loadViewerCollection = async () => {
+      if (!activeAuction || isPublisher || !activeAuction.collection_id) {
+        setViewerCollectionProducts([]);
+        setViewerCollectionName('');
+        return;
+      }
+      const { data, error } = await supabase
+        .from('collections')
+        .select(`id, name, collection_products(product_id, products(*))`)
+        .eq('id', activeAuction.collection_id)
+        .single();
+      if (!error && data) {
+        const products = (data.collection_products || []).map(cp => cp.products).filter(Boolean);
+        setViewerCollectionProducts(products);
+        setViewerCollectionName(data.name || 'Koleksiyon');
+      }
+    };
+    loadViewerCollection();
+  }, [activeAuction?.collection_id, isPublisher]);
+
   // Kazanan profilini çek (current_winner_id değiştiğinde)
   useEffect(() => {
     const loadWinnerProfile = async () => {
@@ -890,7 +917,11 @@ const LiveStream = ({ streamId }) => {
         };
 
         setAuctionWinner(winnerData);
+        setWinnerFadeOut(false);
         setShowWinnerModal(true);
+        // 2 saniye sonra solarak kapanış
+        setTimeout(() => setWinnerFadeOut(true), 1700);
+        setTimeout(() => setShowWinnerModal(false), 2000);
         
         toast({ 
           title: '🎉 Açık artırma bitti!', 
@@ -1105,6 +1136,50 @@ const LiveStream = ({ streamId }) => {
                 </div>
               </div>
             )})}
+          </div>
+        </div>
+      )}
+
+      {/* Viewer Sidebar (read-only) */}
+      {!isPublisher && viewerCollectionProducts.length > 0 && (
+        <div className="w-[260px] bg-white border-r border-gray-200 overflow-y-auto p-4">
+          <div className="mb-4">
+            <h3 className="font-bold text-lg mb-1">{viewerCollectionName}</h3>
+            <p className="text-xs text-gray-500">{viewerCollectionProducts.length} ürün</p>
+          </div>
+          <div className="space-y-3">
+            {viewerCollectionProducts.map(product => {
+              const isActive = activeAuction?.product_id === product.id && activeAuction?.status === 'active';
+              return (
+                <div
+                  key={product.id}
+                  className={`border rounded-lg p-3 transition-colors ${
+                    isActive
+                      ? 'border-purple-500 bg-purple-50'
+                      : product.is_sold
+                        ? 'opacity-50'
+                        : 'hover:border-purple-400'
+                  }`}
+                >
+                  {product.image_url && (
+                    <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
+                      <img src={product.image_url} alt={product.title} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.title}</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-purple-600 font-bold text-sm">₺{Number(product.price).toFixed(2)}</span>
+                    {product.is_sold ? (
+                      <span className="text-[11px] px-2 py-1 rounded bg-gray-200 text-gray-700 font-medium">Satıldı</span>
+                    ) : isActive ? (
+                      <span className="text-[11px] px-2 py-1 rounded bg-purple-600 text-white font-medium">Satışta</span>
+                    ) : (
+                      <span className="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-600 font-medium">Hazır</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1428,8 +1503,8 @@ const LiveStream = ({ streamId }) => {
       </Dialog>
 
       {/* Winner Modal */}
-      <Dialog open={showWinnerModal} onOpenChange={setShowWinnerModal}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showWinnerModal} onOpenChange={(open) => { setShowWinnerModal(open); if (!open) setWinnerFadeOut(false); }}>
+        <DialogContent className={`sm:max-w-md transition-opacity duration-300 ${winnerFadeOut ? 'opacity-0' : 'opacity-100'}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="text-3xl">🎉</span>

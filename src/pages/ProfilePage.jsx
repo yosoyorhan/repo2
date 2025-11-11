@@ -46,6 +46,31 @@ const ProfilePage = () => {
     if (user && userId) {
       checkFollowStatus();
     }
+
+    // Realtime subscription for sales updates
+    const salesChannel = supabase
+      .channel(`sales:${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'sales',
+        filter: `seller_id=eq.${userId}`
+      }, () => {
+        fetchSoldItems();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'sales',
+        filter: `buyer_id=eq.${userId}`
+      }, () => {
+        fetchPurchasedItems();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(salesChannel);
+    };
   }, [userId, user]);
 
   const fetchProfile = async () => {
