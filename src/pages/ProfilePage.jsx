@@ -15,12 +15,14 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
+  const productImageInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [products, setProducts] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState({ title: '', description: '', price: '' });
+  const [newProduct, setNewProduct] = useState({ title: '', description: '', price: '', image_url: '' });
+  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [collections, setCollections] = useState([]);
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const [newCollection, setNewCollection] = useState({ name: '', description: '' });
@@ -249,7 +251,7 @@ const ProfilePage = () => {
         title: newProduct.title.trim(),
         description: newProduct.description.trim() || null,
         price: priceNumber,
-        image_url: null
+        image_url: newProduct.image_url || null
       };
       const { data, error } = await supabase
         .from('products')
@@ -258,12 +260,48 @@ const ProfilePage = () => {
         .single();
       if (error) throw error;
       setProducts(prev => [data, ...prev]);
-      setNewProduct({ title: '', description: '', price: '' });
+      setNewProduct({ title: '', description: '', price: '', image_url: '' });
       setIsAddingProduct(false);
       toast({ title: 'Ürün eklendi ✅' });
     } catch (error) {
       console.error('Error adding product:', error);
       toast({ title: 'Ürün eklenemedi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleProductImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Dosya çok büyük', description: 'Maksimum 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setIsUploadingProductImage(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      setNewProduct(prev => ({ ...prev, image_url: publicUrl }));
+      toast({ title: 'Görsel yüklendi! 📸' });
+    } catch (error) {
+      console.error('Error uploading product image:', error);
+      toast({ title: 'Yükleme başarısız', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingProductImage(false);
     }
   };
 
@@ -346,46 +384,98 @@ const ProfilePage = () => {
     }
   };
 
-  const ProductForm = () => (
-    <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
-      <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Başlık</label>
-        <input
-          type="text"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-          value={newProduct.title}
-          onChange={e => setNewProduct(p => ({ ...p, title: e.target.value }))}
-          placeholder="Ürün adı"
-          autoComplete="off"
+  const ProductForm = () => {
+    const handleTitleChange = (e) => {
+      setNewProduct({ ...newProduct, title: e.target.value });
+    };
+    
+    const handleDescriptionChange = (e) => {
+      setNewProduct({ ...newProduct, description: e.target.value });
+    };
+    
+    const handlePriceChange = (e) => {
+      setNewProduct({ ...newProduct, price: e.target.value });
+    };
+
+    return (
+      <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
+        <input 
+          ref={productImageInputRef} 
+          type="file" 
+          accept="image/*" 
+          onChange={handleProductImageUpload} 
+          className="hidden" 
         />
-      </div>
-      <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
-        <textarea
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-          rows={3}
-          value={newProduct.description}
-          onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))}
-          placeholder="Ürün açıklaması"
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Fiyat (₺)</label>
-        <input
-          type="number"
-          step="0.01"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-          value={newProduct.price}
-          onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))}
-          placeholder="0.00"
-        />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)}>İptal</Button>
-        <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Kaydet</Button>
-      </div>
-    </form>
-  );
+        
+        {/* Image Upload Preview */}
+        {newProduct.image_url ? (
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden border-2 border-purple-300">
+            <img src={newProduct.image_url} alt="Preview" className="w-full h-full object-cover" />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="absolute top-2 right-2"
+              onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div 
+            onClick={() => productImageInputRef.current?.click()}
+            className="w-full aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 cursor-pointer flex flex-col items-center justify-center bg-gray-50 transition-colors"
+          >
+            {isUploadingProductImage ? (
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            ) : (
+              <>
+                <Camera className="h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500">Ürün görseli ekle</p>
+              </>
+            )}
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Başlık</label>
+          <input
+            type="text"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            value={newProduct.title}
+            onChange={handleTitleChange}
+            placeholder="Ürün adı"
+            autoComplete="off"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
+          <textarea
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            rows={3}
+            value={newProduct.description}
+            onChange={handleDescriptionChange}
+            placeholder="Ürün açıklaması"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Fiyat (₺)</label>
+          <input
+            type="number"
+            step="0.01"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            value={newProduct.price}
+            onChange={handlePriceChange}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)}>İptal</Button>
+          <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Kaydet</Button>
+        </div>
+      </form>
+    );
+  };
 
   const handleShareProfile = () => {
     const url = window.location.href;
@@ -707,8 +797,12 @@ const ProfilePage = () => {
                       whileHover={{ scale: 1.02 }}
                       className="bg-white rounded-xl shadow-md overflow-hidden border cursor-pointer"
                     >
-                      <div className="aspect-video bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl">
-                        {prod.title.slice(0,1).toUpperCase()}
+                      <div className="aspect-video bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl relative">
+                        {prod.image_url ? (
+                          <img src={prod.image_url} alt={prod.title} className="w-full h-full object-cover" />
+                        ) : (
+                          prod.title.slice(0,1).toUpperCase()
+                        )}
                       </div>
                       <div className="p-4 space-y-2">
                         <h3 className="font-semibold text-gray-900 line-clamp-2">{prod.title}</h3>
