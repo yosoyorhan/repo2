@@ -58,6 +58,8 @@ const LiveStream = ({ streamId }) => {
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [auctionWinner, setAuctionWinner] = useState(null);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
+  // Profil bilgisini tetikleyen kazanan (trigger sadece current_winner_id güncelliyor)
+  const [winnerProfile, setWinnerProfile] = useState(null);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
@@ -672,7 +674,7 @@ const LiveStream = ({ streamId }) => {
       return;
     }
     
-    const newPrice = activeAuction.current_price + increment;
+  const newPrice = (Number(activeAuction.current_price) || 0) + increment;
     console.log('🔥 Placing bid:', { 
       currentPrice: activeAuction.current_price, 
       increment, 
@@ -682,8 +684,7 @@ const LiveStream = ({ streamId }) => {
     
     try {
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Anonim';
-      
-      // Bid ekle
+      // Sadece bids tablosuna ekle (trigger auctions.current_price & current_winner_id güncelleyecek)
       const { error: bidError } = await supabase
         .from('bids')
         .insert({
@@ -692,39 +693,26 @@ const LiveStream = ({ streamId }) => {
           amount: newPrice,
           increment: increment
         });
-      
-      if (bidError) {
-        console.error('❌ Bid insert error:', bidError);
-        throw bidError;
-      }
-      
-      // Auction'ı güncelle
-      const { error: auctionError } = await supabase
-        .from('auctions')
-        .update({ 
-          current_price: newPrice,
-          winner_user_id: user.id,
-          current_winner_username: username
-        })
-        .eq('id', activeAuction.id);
-      
-      if (auctionError) {
-        console.error('❌ Auction update error:', auctionError);
-        throw auctionError;
-      }
-      
-      console.log('✅ Bid successful! New price:', newPrice);
-      
-      // Chat'e sistem mesajı gönder
-      await supabase
-        .from('stream_messages')
-        .insert({
-          stream_id: streamId,
-          user_id: user.id,
-          content: `💰 ${username} ₺${newPrice.toFixed(2)} teklif verdi! (+₺${increment.toFixed(2)})`,
-          is_system: true
-        });
-      
+      if (bidError) throw bidError;
+
+      // Optimistik UI güncellemesi (realtime gelene kadar)
+      setActiveAuction(prev => prev ? {
+        ...prev,
+        current_price: newPrice,
+        current_winner_id: user.id,
+        // Trigger winner_user_id ayarlamıyor, gösterim için ekliyoruz
+        winner_user_id: user.id,
+        current_winner_username: prev.current_winner_username || username
+      } : prev);
+
+      // Sistem mesajı (opsiyonel)
+      await supabase.from('stream_messages').insert({
+        stream_id: streamId,
+        user_id: user.id,
+        content: `💰 ${username} ₺${newPrice.toFixed(2)} teklif verdi! (+₺${increment.toFixed(2)})`,
+        is_system: true
+      });
+
       setBidAmount('');
       toast({ title: '✅ Teklif verildi!', description: `₺${newPrice.toFixed(2)}` });
     } catch (error) {
@@ -790,7 +778,18 @@ const LiveStream = ({ streamId }) => {
         schema: 'public',
         table: 'bids'
       }, payload => {
-        setAuctionBids(prev => [payload.new, ...prev]);
+        const bid = payload.new;
+        // Sadece aktif açık artırmanın tekliflerini işle
+        setAuctionBids(prev => (activeAuction && bid.auction_id === activeAuction.id) ? [bid, ...prev] : prev);
+        if (activeAuction && bid.auction_id === activeAuction.id) {
+          // UI'ı anında güncelle (server trigger gecikirse bile)
+          setActiveAuction(prev => prev ? {
+            ...prev,
+            current_price: Math.max(Number(prev.current_price) || 0, Number(bid.amount) || 0),
+            current_winner_id: bid.user_id,
+            winner_user_id: bid.user_id
+          } : prev);
+        }
       })
       .subscribe();
     
@@ -800,6 +799,23 @@ const LiveStream = ({ streamId }) => {
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
+
+  // Kazanan profilini çek (current_winner_id değiştiğinde)
+  useEffect(() => {
+    const loadWinnerProfile = async () => {
+      if (activeAuction?.current_winner_id) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', activeAuction.current_winner_id)
+          .single();
+        setWinnerProfile(data || null);
+      } else {
+        setWinnerProfile(null);
+      }
+    };
+    loadWinnerProfile();
+  }, [activeAuction?.current_winner_id]);
 
   // Auction Timer: 30 saniye geri sayım
   useEffect(() => {
@@ -1231,16 +1247,17 @@ const LiveStream = ({ streamId }) => {
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
-                {activeAuction.current_winner_username && (
+                {(activeAuction.current_winner_username || winnerProfile?.username || activeAuction.current_winner_id) && (
                   <div className="mt-2 flex items-center gap-2">
                     <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
                       <span className="text-xs">👑</span>
                     </div>
                     <p className="text-sm font-semibold text-gray-700">
-                      {activeAuction.winner_user_id === user?.id 
-                        ? <span className="text-green-600">Siz öndesiniz! 🏆</span>
-                        : <span>{activeAuction.current_winner_username}</span>
-                      }
+                      {activeAuction.current_winner_id === user?.id ? (
+                        <span className="text-green-600">Siz öndesiniz! 🏆</span>
+                      ) : (
+                        <span>{activeAuction.current_winner_username || winnerProfile?.username || (activeAuction.current_winner_id?.slice(0,8) + '...')}</span>
+                      )}
                     </p>
                   </div>
                 )}
@@ -1328,14 +1345,14 @@ const LiveStream = ({ streamId }) => {
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
-                {activeAuction.current_winner_username && (
+                {(activeAuction.current_winner_username || winnerProfile?.username || activeAuction.current_winner_id) && (
                   <div className="mt-2 flex items-center gap-2">
                     <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
                       <span className="text-xs">👑</span>
                     </div>
                     <p className="text-sm font-semibold text-gray-700">
-                      Lider: {activeAuction.current_winner_username} 
-                      {activeAuction.winner_user_id === user?.id && ' 🏆'}
+                      Lider: {activeAuction.current_winner_username || winnerProfile?.username || (activeAuction.current_winner_id?.slice(0,8) + '...')} 
+                      {activeAuction.current_winner_id === user?.id && ' 🏆'}
                     </p>
                   </div>
                 )}
