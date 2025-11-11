@@ -172,12 +172,32 @@ const ProfilePage = () => {
         .from('sales')
         .select(`
           *,
-          products(*),
-          buyer:buyer_id(*)
+          products(*)
         `)
         .eq('seller_id', userId);
+      
       if (error) throw error;
-      setSoldItems(data || []);
+      
+      // Manually fetch buyer profiles
+      if (data && data.length > 0) {
+        const buyerIds = [...new Set(data.map(s => s.buyer_id))];
+        const { data: buyers } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', buyerIds);
+        
+        const buyerMap = {};
+        buyers?.forEach(b => { buyerMap[b.id] = b; });
+        
+        const enrichedData = data.map(sale => ({
+          ...sale,
+          buyer: buyerMap[sale.buyer_id] || { username: 'Kullanıcı' }
+        }));
+        
+        setSoldItems(enrichedData);
+      } else {
+        setSoldItems([]);
+      }
     } catch (error) {
       console.error('Error fetching sold items:', error);
     }
@@ -189,12 +209,32 @@ const ProfilePage = () => {
         .from('sales')
         .select(`
           *,
-          products(*),
-          seller:seller_id(*)
+          products(*)
         `)
         .eq('buyer_id', userId);
+      
       if (error) throw error;
-      setPurchasedItems(data || []);
+      
+      // Manually fetch seller profiles
+      if (data && data.length > 0) {
+        const sellerIds = [...new Set(data.map(s => s.seller_id))];
+        const { data: sellers } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', sellerIds);
+        
+        const sellerMap = {};
+        sellers?.forEach(s => { sellerMap[s.id] = s; });
+        
+        const enrichedData = data.map(sale => ({
+          ...sale,
+          seller: sellerMap[sale.seller_id] || { username: 'Kullanıcı' }
+        }));
+        
+        setPurchasedItems(enrichedData);
+      } else {
+        setPurchasedItems([]);
+      }
     } catch (error) {
       console.error('Error fetching purchased items:', error);
     }
