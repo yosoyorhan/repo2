@@ -36,11 +36,8 @@ const ChatPanel = ({ streamId }) => {
         }
     };
     fetchMessages();
-    
-    // Polling: Her 10ms'de bir mesajları güncelle (0.01 saniye - ultra-realtime)
-    const pollingInterval = setInterval(fetchMessages, 10);
 
-    // Subscribe to new messages (realtime)
+    // Subscribe to new messages (realtime) - Supabase realtime is instant!
     const messageChannel = supabase.channel(`public:stream_messages:stream=${streamId}`)
       .on('postgres_changes', {
         event: 'INSERT',
@@ -49,7 +46,13 @@ const ChatPanel = ({ streamId }) => {
         filter: `stream_id=eq.${streamId}`
       }, (payload) => {
         // Profil bilgisi zaten payload.new.profiles ile geliyorsa ekle, yoksa sadece mesajı ekle
-        setChatMessages(currentMessages => [...currentMessages, { ...payload.new }]);
+        setChatMessages(currentMessages => {
+          // Duplicate kontrolü
+          if (currentMessages.some(msg => msg.id === payload.new.id)) {
+            return currentMessages;
+          }
+          return [...currentMessages, { ...payload.new }];
+        });
       })
       .subscribe();
       
@@ -68,7 +71,6 @@ const ChatPanel = ({ streamId }) => {
     });
 
     return () => {
-      clearInterval(pollingInterval);
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(presenceChannel);
     };

@@ -714,10 +714,7 @@ const LiveStream = ({ streamId }) => {
     
     fetchActiveAuction();
     
-    // Polling: Her 10ms'de bir güncel fiyatı çek (0.01 saniye - ultra-realtime)
-    const pollingInterval = setInterval(fetchActiveAuction, 10);
-    
-    // Realtime subscription for auction updates
+    // Realtime subscription for auction updates - instant updates!
     const channel = supabase
       .channel(`auction:${streamData.id}`)
       .on('postgres_changes', {
@@ -752,7 +749,6 @@ const LiveStream = ({ streamId }) => {
     setAuctionChannel(channel);
     
     return () => {
-      clearInterval(pollingInterval);
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
@@ -972,11 +968,21 @@ const LiveStream = ({ streamId }) => {
             <p className="text-xs text-gray-500">{collectionProducts.length} ürün</p>
           </div>
           <div className="space-y-3">
-            {collectionProducts.map(product => (
+            {collectionProducts.map(product => {
+              const isActive = activeAuction?.product_id === product.id;
+              const hasActiveAuction = activeAuction && activeAuction.status === 'active';
+              
+              return (
               <div
                 key={product.id}
-                className="border rounded-lg p-3 hover:border-purple-500 cursor-pointer transition-colors"
-                onClick={() => startAuction(product.id)}
+                className={`border rounded-lg p-3 transition-colors ${
+                  isActive 
+                    ? 'border-purple-500 bg-purple-50' 
+                    : hasActiveAuction 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:border-purple-500 cursor-pointer'
+                }`}
+                onClick={() => !hasActiveAuction && !isActive && startAuction(product.id)}
               >
                 {product.image_url && (
                   <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
@@ -987,13 +993,18 @@ const LiveStream = ({ streamId }) => {
                 <p className="text-xs text-gray-600 line-clamp-2 mb-2">{product.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-purple-600 font-bold text-sm">₺{Number(product.price).toFixed(2)}</span>
-                  <Button size="sm" variant="outline" className="text-xs h-7 px-2">
+                  <Button 
+                    size="sm" 
+                    variant={isActive ? "default" : "outline"}
+                    className="text-xs h-7 px-2"
+                    disabled={hasActiveAuction && !isActive}
+                  >
                     <Gavel className="h-3 w-3 mr-1" />
-                    Başlat
+                    {isActive ? 'Satışta' : 'Başlat'}
                   </Button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
