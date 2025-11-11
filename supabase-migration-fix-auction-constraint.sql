@@ -4,6 +4,9 @@
 -- Drop the old constraint
 ALTER TABLE auctions DROP CONSTRAINT IF EXISTS auctions_check;
 
+-- Drop if exists and re-add new constraint
+ALTER TABLE auctions DROP CONSTRAINT IF EXISTS auctions_product_required;
+
 -- Add new constraint: at least product_id must exist (collection_id is optional for context)
 ALTER TABLE auctions ADD CONSTRAINT auctions_product_required 
   CHECK (product_id IS NOT NULL);
