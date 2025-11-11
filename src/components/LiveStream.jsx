@@ -673,6 +673,12 @@ const LiveStream = ({ streamId }) => {
     }
     
     const newPrice = activeAuction.current_price + increment;
+    console.log('🔥 Placing bid:', { 
+      currentPrice: activeAuction.current_price, 
+      increment, 
+      newPrice,
+      auctionId: activeAuction.id 
+    });
     
     try {
       const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Anonim';
@@ -687,7 +693,10 @@ const LiveStream = ({ streamId }) => {
           increment: increment
         });
       
-      if (bidError) throw bidError;
+      if (bidError) {
+        console.error('❌ Bid insert error:', bidError);
+        throw bidError;
+      }
       
       // Auction'ı güncelle
       const { error: auctionError } = await supabase
@@ -699,7 +708,12 @@ const LiveStream = ({ streamId }) => {
         })
         .eq('id', activeAuction.id);
       
-      if (auctionError) throw auctionError;
+      if (auctionError) {
+        console.error('❌ Auction update error:', auctionError);
+        throw auctionError;
+      }
+      
+      console.log('✅ Bid successful! New price:', newPrice);
       
       // Chat'e sistem mesajı gönder
       await supabase
@@ -714,8 +728,8 @@ const LiveStream = ({ streamId }) => {
       setBidAmount('');
       toast({ title: '✅ Teklif verildi!', description: `₺${newPrice.toFixed(2)}` });
     } catch (error) {
-      console.error('Error placing bid:', error);
-      toast({ title: 'Teklif verilemedi', variant: 'destructive' });
+      console.error('❌ Error placing bid:', error);
+      toast({ title: 'Teklif verilemedi', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -1294,13 +1308,26 @@ const LiveStream = ({ streamId }) => {
             </div>
             <div className="space-y-3">
               <div className="bg-purple-50 rounded-lg p-3">
-                <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${timeRemaining <= 10 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+                    <span className={`text-sm font-bold ${timeRemaining <= 10 ? 'text-red-600' : 'text-gray-700'}`}>
+                      ⏱️ {timeRemaining}s
+                    </span>
+                  </div>
+                </div>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
                 {activeAuction.current_winner_username && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Lider: {activeAuction.current_winner_username} 
-                    {activeAuction.winner_user_id === user?.id && ' 🏆'}
-                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                      <span className="text-xs">👑</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Lider: {activeAuction.current_winner_username} 
+                      {activeAuction.winner_user_id === user?.id && ' 🏆'}
+                    </p>
+                  </div>
                 )}
               </div>
               <Button onClick={endAuction} className="w-full bg-red-600 hover:bg-red-700 text-white">
