@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const fileInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
+  const [activeStreams, setActiveStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [products, setProducts] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -35,6 +36,7 @@ const ProfilePage = () => {
   useEffect(() => {
     fetchProfile();
     fetchStreams();
+    fetchActiveStreams();
     fetchProducts();
     fetchCollections();
     if (user && userId) {
@@ -82,6 +84,23 @@ const ProfilePage = () => {
     }
   };
 
+  const fetchActiveStreams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('streams')
+        .select('id, title, status, created_at, orientation')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setActiveStreams(data || []);
+    } catch (error) {
+      console.error('Error fetching active streams:', error);
+    }
+  };
+
   const checkFollowStatus = async () => {
     if (!user || user.id === userId) return;
     
@@ -97,6 +116,24 @@ const ProfilePage = () => {
     } catch (error) {
       // No follow relationship exists
       setIsFollowing(false);
+    }
+  };
+
+  const handleEndStream = async (streamId) => {
+    try {
+      const { error } = await supabase
+        .from('streams')
+        .update({ status: 'ended', ended_at: new Date().toISOString() })
+        .eq('id', streamId)
+        .eq('user_id', user.id); // Security: only owner can end
+
+      if (error) throw error;
+
+      toast({ title: 'Yayın sonlandırıldı ✅' });
+      fetchActiveStreams(); // Refresh list
+    } catch (error) {
+      console.error('Error ending stream:', error);
+      toast({ title: 'Yayın sonlandırılamadı', variant: 'destructive' });
     }
   };
 
@@ -605,6 +642,37 @@ const ProfilePage = () => {
           </TabsContent>
 
           <TabsContent value="activity" className="mt-6">
+            {isOwnProfile && activeStreams.length > 0 && (
+              <div className="bg-white rounded-xl p-6 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Video className="h-5 w-5 text-red-500" />
+                  Aktif Yayınlarınız
+                </h3>
+                <div className="space-y-3">
+                  {activeStreams.map(stream => (
+                    <div key={stream.id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        <div>
+                          <p className="font-medium text-gray-900">{stream.title}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(stream.created_at).toLocaleString('tr-TR')}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleEndStream(stream.id)}
+                      >
+                        Yayını Sonlandır
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="bg-white rounded-xl p-12 text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">Aktivite geçmişi yakında eklenecek</p>

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Video, VideoOff, Mic, MicOff, Camera, Loader2, Link as LinkIcon, Gavel, TrendingUp, Package, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const LiveStream = ({ streamId }) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const videoRef = useRef(null);
@@ -149,8 +151,18 @@ const LiveStream = ({ streamId }) => {
         }
         if (payload.new.status === 'ended') {
           setStreamEnded(true);
-          toast({ title: 'Yayın sona erdi.' });
           cleanup();
+          
+          // İzleyici ise bildirim göster ve ana sayfaya yönlendir
+          if (!isPublisher) {
+            toast({ 
+              title: 'Yayın sona erdi, teşekkürler! 👋',
+              description: 'Ana sayfaya yönlendiriliyorsunuz...'
+            });
+            setTimeout(() => navigate('/'), 3000);
+          } else {
+            toast({ title: 'Yayın sona erdi.' });
+          }
         } else if (payload.new.status === 'active') {
           setStreamEnded(false); // Yayın tekrar aktif olunca flag'i temizle
         }
@@ -686,10 +698,16 @@ const LiveStream = ({ streamId }) => {
       if (data) {
         setActiveAuction(data);
         setShowAuctionPanel(true);
+      } else {
+        setActiveAuction(null);
+        setShowAuctionPanel(false);
       }
     };
     
     fetchActiveAuction();
+    
+    // Polling: Her 1 saniyede bir güncel fiyatı çek (realtime yedek)
+    const pollingInterval = setInterval(fetchActiveAuction, 1000);
     
     // Realtime subscription for auction updates
     const channel = supabase
@@ -726,6 +744,7 @@ const LiveStream = ({ streamId }) => {
     setAuctionChannel(channel);
     
     return () => {
+      clearInterval(pollingInterval);
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
