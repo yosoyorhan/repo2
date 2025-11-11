@@ -914,27 +914,47 @@ const ProfilePage = () => {
           </TabsContent>
 
           <TabsContent value="purchased" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {purchasedItems.map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-bold">{item.products.title}</h3>
-                  <p>Price: {item.final_price}</p>
-                  <p>Sold by: <a href={`/profile/${item.profiles.id}`}>{item.profiles.username}</a></p>
-                </div>
-              ))}
-            </div>
+            {purchasedItems.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center">
+                <p className="text-gray-500">Henüz satın alım yok</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {purchasedItems.map(item => (
+                  <div key={item.id} className="bg-white rounded-lg shadow p-4">
+                    {item.products?.image_url && (
+                      <img src={item.products.image_url} alt={item.products?.title} className="w-full h-32 object-cover rounded mb-2" />
+                    )}
+                    <h3 className="font-bold">{item.products?.title}</h3>
+                    <p className="text-green-600 font-semibold">₺{Number(item.final_price).toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">Satıcı: {item.seller?.username || 'Kullanıcı'}</p>
+                    <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="sold" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {soldItems.map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-bold">{item.products.title}</h3>
-                  <p>Price: {item.final_price}</p>
-                  <p>Purchased by: <a href={`/profile/${item.profiles.id}`}>{item.profiles.username}</a></p>
-                </div>
-              ))}
-            </div>
+            {soldItems.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center">
+                <p className="text-gray-500">Henüz satış yok</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {soldItems.map(item => (
+                  <div key={item.id} className="bg-white rounded-lg shadow p-4">
+                    {item.products?.image_url && (
+                      <img src={item.products.image_url} alt={item.products?.title} className="w-full h-32 object-cover rounded mb-2" />
+                    )}
+                    <h3 className="font-bold">{item.products?.title}</h3>
+                    <p className="text-green-600 font-semibold">₺{Number(item.final_price).toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">Alıcı: {item.buyer?.username || 'Kullanıcı'}</p>
+                    <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('tr-TR')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
