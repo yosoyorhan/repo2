@@ -838,6 +838,29 @@ const LiveStream = ({ streamId }) => {
         console.log('✅ Viewer: Loaded', products.length, 'products from', data.name);
         setViewerCollectionProducts(products);
         setViewerCollectionName(data.name || 'Koleksiyon');
+        
+        // Realtime subscription for product updates (is_sold changes)
+        if (!isPublisher && activeAuction.collection_id) {
+          const productIds = products.map(p => p.id);
+          const productChannel = supabase
+            .channel(`products:${activeAuction.collection_id}`)
+            .on('postgres_changes', {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'products',
+              filter: `id=in.(${productIds.join(',')})`
+            }, (payload) => {
+              console.log('🔄 Product updated:', payload.new);
+              setViewerCollectionProducts(prev => prev.map(p => 
+                p.id === payload.new.id ? { ...p, ...payload.new } : p
+              ));
+            })
+            .subscribe();
+          
+          return () => {
+            supabase.removeChannel(productChannel);
+          };
+        }
       }
     };
     loadViewerCollection();
@@ -985,8 +1008,18 @@ const LiveStream = ({ streamId }) => {
           })
           .eq('id', activeAuction.product_id);
         if (prodError) console.error('⚠️ Product update error:', prodError);
-        // Sol menüde ürünü pasifleştir (UI güncelle)
-        setCollectionProducts(prev => prev.map(p => p.id === activeAuction.product_id ? { ...p, is_sold: true, winner_user_id: auctionWinner.user_id } : p));
+        
+        // Sol menüde ürünü pasifleştir (UI güncelle) - hem publisher hem viewer için
+        setCollectionProducts(prev => prev.map(p => 
+          p.id === activeAuction.product_id 
+            ? { ...p, is_sold: true, winner_user_id: auctionWinner.user_id } 
+            : p
+        ));
+        setViewerCollectionProducts(prev => prev.map(p => 
+          p.id === activeAuction.product_id 
+            ? { ...p, is_sold: true, winner_user_id: auctionWinner.user_id } 
+            : p
+        ));
       }
 
       setShowWinnerModal(false);
