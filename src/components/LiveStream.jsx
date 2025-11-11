@@ -621,9 +621,9 @@ const LiveStream = ({ streamId }) => {
     }
   };
 
-  const placeBid = async () => {
+  const placeBid = async (customAmount = null) => {
     if (!user || !activeAuction) return;
-    const amount = parseFloat(bidAmount);
+    const amount = customAmount !== null ? customAmount : parseFloat(bidAmount);
     if (isNaN(amount) || amount <= activeAuction.current_price) {
       toast({ title: 'Teklif mevcut fiyattan yüksek olmalı', variant: 'destructive' });
       return;
@@ -644,6 +644,11 @@ const LiveStream = ({ streamId }) => {
       console.error('Error placing bid:', error);
       toast({ title: 'Teklif verilemedi', variant: 'destructive' });
     }
+  };
+
+  const quickBid = (increment) => {
+    const newAmount = (activeAuction?.current_price || 0) + increment;
+    placeBid(newAmount);
   };
 
   // Subscribe to active auction
@@ -677,6 +682,13 @@ const LiveStream = ({ streamId }) => {
       }, payload => {
         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
           setActiveAuction(payload.new);
+          if (!isPublisher) {
+            toast({ 
+              title: '💰 Fiyat güncellendi!', 
+              description: `Yeni fiyat: ₺${Number(payload.new.current_price).toFixed(2)}`,
+              duration: 2000
+            });
+          }
         } else if (payload.eventType === 'DELETE') {
           setActiveAuction(null);
           setShowAuctionPanel(false);
@@ -950,28 +962,54 @@ const LiveStream = ({ streamId }) => {
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
                 {activeAuction.current_winner_id && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Lider: {activeAuction.current_winner_id === user?.id ? 'Siz' : activeAuction.current_winner_id.slice(0, 8) + '...'}
+                    Lider: {activeAuction.current_winner_id === user?.id ? 'Siz 🏆' : activeAuction.current_winner_id.slice(0, 8) + '...'}
                   </p>
                 )}
               </div>
+              
+              {/* Quick Bid Buttons */}
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  onClick={() => quickBid(25)} 
+                  variant="outline"
+                  className="flex-1 border-purple-300 text-purple-600 hover:bg-purple-50"
+                >
+                  +₺25
+                </Button>
+                <Button 
+                  onClick={() => quickBid(50)} 
+                  variant="outline"
+                  className="flex-1 border-purple-300 text-purple-600 hover:bg-purple-50"
+                >
+                  +₺50
+                </Button>
+                <Button 
+                  onClick={() => quickBid(100)} 
+                  variant="outline"
+                  className="flex-1 border-purple-300 text-purple-600 hover:bg-purple-50"
+                >
+                  +₺100
+                </Button>
+              </div>
+
               <div className="flex gap-2">
                 <input
                   type="number"
                   step="0.01"
-                  className="flex-1 rounded-md border-gray-300 px-3 py-2 border focus:border-purple-500 focus:ring-purple-500"
-                  placeholder="Teklifiniz"
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                  placeholder="Özel tutar"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                 />
-                <Button onClick={placeBid} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Button onClick={() => placeBid()} className="bg-purple-600 hover:bg-purple-700 text-white">
                   <TrendingUp className="h-4 w-4 mr-2" />
-                  Teklif Ver
+                  Gönder
                 </Button>
               </div>
               {auctionBids.length > 0 && (
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   <p className="text-xs font-medium text-gray-600 mb-1">Son Teklifler</p>
-                  {auctionBids.map((bid, idx) => (
+                  {auctionBids.slice(0, 10).map((bid, idx) => (
                     <div key={bid.id || idx} className="text-xs bg-gray-50 rounded p-2 flex justify-between">
                       <span>{bid.user_id === user?.id ? 'Siz' : bid.user_id.slice(0, 8) + '...'}</span>
                       <span className="font-semibold">₺{Number(bid.amount).toFixed(2)}</span>

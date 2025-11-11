@@ -349,19 +349,20 @@ const ProfilePage = () => {
   const ProductForm = () => (
     <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
       <div>
-        <label className="text-sm font-medium text-gray-700">Başlık</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">Başlık</label>
         <input
           type="text"
-          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
           value={newProduct.title}
           onChange={e => setNewProduct(p => ({ ...p, title: e.target.value }))}
           placeholder="Ürün adı"
+          autoComplete="off"
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-gray-700">Açıklama</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
         <textarea
-          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
           rows={3}
           value={newProduct.description}
           onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))}
@@ -369,11 +370,11 @@ const ProfilePage = () => {
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-gray-700">Fiyat (₺)</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">Fiyat (₺)</label>
         <input
           type="number"
           step="0.01"
-          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
           value={newProduct.price}
           onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))}
           placeholder="0.00"

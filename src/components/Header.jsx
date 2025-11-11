@@ -29,10 +29,10 @@ const Header = ({ onAuthClick }) => {
     <header className="h-20 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-8">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-[#FFDE59] rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-gray-900">W</span>
+          <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center">
+            <span className="text-2xl font-bold text-white">L</span>
           </div>
-          <span className="text-xl font-bold text-gray-900">whatnot</span>
+          <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Livennervar</span>
         </Link>
       </div>
 
