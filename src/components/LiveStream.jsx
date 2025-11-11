@@ -808,18 +808,34 @@ const LiveStream = ({ streamId }) => {
   // Viewer: aktif açık artırmanın koleksiyonundaki ürünleri yükle
   useEffect(() => {
     const loadViewerCollection = async () => {
-      if (!activeAuction || isPublisher || !activeAuction.collection_id) {
+      if (!activeAuction || isPublisher) {
         setViewerCollectionProducts([]);
         setViewerCollectionName('');
         return;
       }
+      
+      if (!activeAuction.collection_id) {
+        console.warn('⚠️ Viewer: activeAuction has no collection_id', activeAuction);
+        setViewerCollectionProducts([]);
+        setViewerCollectionName('');
+        return;
+      }
+      
+      console.log('🔍 Viewer: Loading collection', activeAuction.collection_id);
       const { data, error } = await supabase
         .from('collections')
         .select(`id, name, collection_products(product_id, products(*))`)
         .eq('id', activeAuction.collection_id)
         .single();
-      if (!error && data) {
+      
+      if (error) {
+        console.error('❌ Viewer: Error loading collection', error);
+        return;
+      }
+      
+      if (data) {
         const products = (data.collection_products || []).map(cp => cp.products).filter(Boolean);
+        console.log('✅ Viewer: Loaded', products.length, 'products from', data.name);
         setViewerCollectionProducts(products);
         setViewerCollectionName(data.name || 'Koleksiyon');
       }

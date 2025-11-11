@@ -170,7 +170,11 @@ const ProfilePage = () => {
     try {
       const { data, error } = await supabase
         .from('sales')
-        .select(`*, products(*), profiles:buyer_id(*)`)
+        .select(`
+          *,
+          products(*),
+          buyer:buyer_id(*)
+        `)
         .eq('seller_id', userId);
       if (error) throw error;
       setSoldItems(data || []);
@@ -183,7 +187,11 @@ const ProfilePage = () => {
     try {
       const { data, error } = await supabase
         .from('sales')
-        .select(`*, products(*), profiles:seller_id(*)`)
+        .select(`
+          *,
+          products(*),
+          seller:seller_id(*)
+        `)
         .eq('buyer_id', userId);
       if (error) throw error;
       setPurchasedItems(data || []);
@@ -775,6 +783,13 @@ const ProfilePage = () => {
                           <img src={prod.image_url} alt={prod.title} className="w-full h-full object-cover" />
                         ) : (
                           prod.title.slice(0,1).toUpperCase()
+                        )}
+                        {prod.is_sold && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg">
+                              SATILDI ✓
+                            </div>
+                          </div>
                         )}
                       </div>
                       <div className="p-4 space-y-2">
