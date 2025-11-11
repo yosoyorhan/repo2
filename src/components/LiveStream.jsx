@@ -1199,6 +1199,16 @@ const LiveStream = ({ streamId }) => {
           </div>
         </div>
       )}
+      {/* Debug: viewer sidebar visibility */}
+      {!isPublisher && (
+        <div className="hidden">
+          {console.log('🔍 Sidebar Check:', { 
+            isPublisher, 
+            productsCount: viewerCollectionProducts.length,
+            shouldShow: !isPublisher && viewerCollectionProducts.length > 0 
+          })}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 bg-gray-50 p-2 sm:p-6 flex flex-col items-center justify-center relative overflow-y-auto">
