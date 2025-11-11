@@ -204,6 +204,13 @@ const LiveStream = ({ streamId }) => {
     };
   }, [isPublisher, streamData?.id, isStreaming]);
 
+  // Koleksiyon seçim modal'ı açıldığında koleksiyonları yükle
+  useEffect(() => {
+    if (showCollectionSelector && user) {
+      fetchCollections();
+    }
+  }, [showCollectionSelector, user]);
+
   // Yayını Bitir butonu
   const endStreamManually = async () => {
     if (!isPublisher || !streamData?.id) return;
