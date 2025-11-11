@@ -647,8 +647,8 @@ const LiveStream = ({ streamId }) => {
       
       if (error) throw error;
       
-      if (activeAuction.current_winner_id) {
-        toast({ title: `🎉 Açık artırma bitti! Kazanan: ${activeAuction.current_winner_id.slice(0, 8)}...` });
+      if (activeAuction.winner_user_id) {
+        toast({ title: `🎉 Açık artırma bitti! Kazanan: ${activeAuction.current_winner_username || activeAuction.winner_user_id.slice(0, 8)}...` });
       } else {
         toast({ title: '⏹️ Açık artırma teklif almadan bitti' });
       }
@@ -694,7 +694,7 @@ const LiveStream = ({ streamId }) => {
         .from('auctions')
         .update({ 
           current_price: newPrice,
-          current_winner_id: user.id,
+          winner_user_id: user.id,
           current_winner_username: username
         })
         .eq('id', activeAuction.id);
@@ -1213,7 +1213,7 @@ const LiveStream = ({ streamId }) => {
                       <span className="text-xs">👑</span>
                     </div>
                     <p className="text-sm font-semibold text-gray-700">
-                      {activeAuction.current_winner_id === user?.id 
+                      {activeAuction.winner_user_id === user?.id 
                         ? <span className="text-green-600">Siz öndesiniz! 🏆</span>
                         : <span>{activeAuction.current_winner_username}</span>
                       }
@@ -1296,8 +1296,11 @@ const LiveStream = ({ streamId }) => {
               <div className="bg-purple-50 rounded-lg p-3">
                 <p className="text-sm text-gray-600">Mevcut Fiyat</p>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
-                {activeAuction.current_winner_id && (
-                  <p className="text-xs text-gray-500 mt-1">Lider: {activeAuction.current_winner_id.slice(0, 8)}...</p>
+                {activeAuction.current_winner_username && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lider: {activeAuction.current_winner_username} 
+                    {activeAuction.winner_user_id === user?.id && ' 🏆'}
+                  </p>
                 )}
               </div>
               <Button onClick={endAuction} className="w-full bg-red-600 hover:bg-red-700 text-white">
