@@ -48,6 +48,8 @@ const LiveStream = ({ streamId }) => {
   const [showAuctionPanel, setShowAuctionPanel] = useState(false);
   const [showCollectionSelector, setShowCollectionSelector] = useState(false);
   const [collections, setCollections] = useState([]);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  const [collectionProducts, setCollectionProducts] = useState([]);
   const [bidAmount, setBidAmount] = useState('');
   const [auctionBids, setAuctionBids] = useState([]);
   const [auctionChannel, setAuctionChannel] = useState(null);
@@ -439,6 +441,13 @@ const LiveStream = ({ streamId }) => {
   const startStream = async () => {
     if (!isPublisher) return;
 
+    // Koleksiyon seçimi kontrolü
+    if (!selectedCollection) {
+      toast({ title: '⚠️ Önce koleksiyon seç!', description: 'Yayın başlatmak için bir koleksiyon seçmelisin', variant: 'destructive' });
+      setShowCollectionSelector(true);
+      return;
+    }
+
     try {
       const { data: activeStreams } = await supabase
         .from('streams')
@@ -475,7 +484,7 @@ const LiveStream = ({ streamId }) => {
       setPreviewActive(false);
       setStreamEnded(false);
       await supabase.from('streams').update({ status: 'active' }).eq('id', streamId);
-      toast({ title: '🎥 Canlı yayın başladı!' });
+      toast({ title: '🎥 Canlı yayın başladı!', description: `${selectedCollection.name} koleksiyonu ile` });
       log('publisher started');
     } catch (error) {
       toast({ title: '❌ İzin gerekli', description: String(error), variant: 'destructive' });
@@ -561,33 +570,37 @@ const LiveStream = ({ streamId }) => {
     }
   };
 
-  const startAuction = async (collectionId) => {
-    if (!isPublisher || !streamData) return;
-    try {
-      const collection = collections.find(c => c.id === collectionId);
-      if (!collection) return;
-      
-      const startingPrice = collection.collection_products?.length > 0 
-        ? collection.collection_products.reduce((sum, cp) => sum + Number(cp.products.price), 0)
-        : 0;
+  const selectCollection = (collection) => {
+    setSelectedCollection(collection);
+    const products = collection.collection_products?.map(cp => cp.products).filter(Boolean) || [];
+    setCollectionProducts(products);
+    setShowCollectionSelector(false);
+    toast({ title: `📦 ${collection.name} koleksiyonu seçildi`, description: `${products.length} ürün yüklendi` });
+  };
 
+  const startAuction = async (productId) => {
+    if (!isPublisher || !streamData || !selectedCollection) return;
+    try {
+      const product = collectionProducts.find(p => p.id === productId);
+      if (!product) return;
+      
       const { data, error } = await supabase
         .from('auctions')
         .insert({
           stream_id: streamId,
-          collection_id: collectionId,
-          starting_price: startingPrice,
-          current_price: startingPrice,
+          product_id: productId,
+          starting_price: Number(product.price),
+          current_price: Number(product.price),
           status: 'active'
         })
         .select()
         .single();
       
       if (error) throw error;
+      
       setActiveAuction(data);
-      setShowCollectionSelector(false);
       setShowAuctionPanel(true);
-      toast({ title: '🔨 Açık artırma başladı!' });
+      toast({ title: '🔨 Açık artırma başladı!', description: `${product.title} - ₺${Number(product.price).toFixed(2)}` });
     } catch (error) {
       console.error('Error starting auction:', error);
       toast({ title: 'Açık artırma başlatılamadı', variant: 'destructive' });
@@ -810,7 +823,43 @@ const LiveStream = ({ streamId }) => {
   }
 
   return (
-    <div className="bg-gray-50 p-2 sm:p-6 flex flex-col items-center justify-center relative min-h-screen">
+    <div className="flex h-full">
+      {/* Left Sidebar - Collection Products */}
+      {isPublisher && selectedCollection && collectionProducts.length > 0 && (
+        <div className="w-[280px] bg-white border-r border-gray-200 overflow-y-auto p-4">
+          <div className="mb-4">
+            <h3 className="font-bold text-lg mb-1">{selectedCollection.name}</h3>
+            <p className="text-xs text-gray-500">{collectionProducts.length} ürün</p>
+          </div>
+          <div className="space-y-3">
+            {collectionProducts.map(product => (
+              <div
+                key={product.id}
+                className="border rounded-lg p-3 hover:border-purple-500 cursor-pointer transition-colors"
+                onClick={() => startAuction(product.id)}
+              >
+                {product.image_url && (
+                  <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
+                    <img src={product.image_url} alt={product.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.title}</h4>
+                <p className="text-xs text-gray-600 line-clamp-2 mb-2">{product.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-purple-600 font-bold text-sm">₺{Number(product.price).toFixed(2)}</span>
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2">
+                    <Gavel className="h-3 w-3 mr-1" />
+                    Başlat
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 bg-gray-50 p-2 sm:p-6 flex flex-col items-center justify-center relative overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -926,6 +975,9 @@ const LiveStream = ({ streamId }) => {
               onClick={() => {
                 if (activeAuction) {
                   setShowAuctionPanel(true);
+                } else if (selectedCollection && collectionProducts.length > 0) {
+                  // Koleksiyon seçiliyse direkt ürün panelini aç (sol tarafta zaten görünüyor)
+                  toast({ title: 'Sol panelden ürün seç', description: 'Açık artırma başlatmak için bir ürüne tıkla' });
                 } else {
                   fetchCollections();
                   setShowCollectionSelector(true);
@@ -935,7 +987,7 @@ const LiveStream = ({ streamId }) => {
               className="rounded-full w-full sm:w-auto min-h-[44px] bg-purple-600 text-white hover:bg-purple-700"
             >
               <Gavel className="w-5 h-5 mr-2" />
-              {activeAuction ? 'Açık Artırma' : 'Açık Artırma Başlat'}
+              {activeAuction ? 'Açık Artırma' : selectedCollection ? 'Ürün Seç' : 'Koleksiyon Seç'}
             </Button>
           </div>
         )}
@@ -1057,7 +1109,7 @@ const LiveStream = ({ streamId }) => {
       <Dialog open={showCollectionSelector} onOpenChange={setShowCollectionSelector}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Açık Artırma İçin Koleksiyon Seç</DialogTitle>
+            <DialogTitle>Koleksiyon Seç</DialogTitle>
             <DialogDescription>
               Canlı yayında satmak istediğiniz ürün koleksiyonunu seçin
             </DialogDescription>
@@ -1072,7 +1124,7 @@ const LiveStream = ({ streamId }) => {
                 <div
                   key={collection.id}
                   className="p-4 border rounded-lg hover:border-purple-500 cursor-pointer transition-colors"
-                  onClick={() => startAuction(collection.id)}
+                  onClick={() => selectCollection(collection)}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-semibold">{collection.name}</h4>
@@ -1083,9 +1135,6 @@ const LiveStream = ({ streamId }) => {
                   )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">{collection.collection_products?.length || 0} ürün</span>
-                    <span className="text-purple-600 font-semibold">
-                      ₺{collection.collection_products?.reduce((sum, cp) => sum + Number(cp.products.price), 0).toFixed(2) || '0.00'}
-                    </span>
                   </div>
                 </div>
               ))
@@ -1093,6 +1142,7 @@ const LiveStream = ({ streamId }) => {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };

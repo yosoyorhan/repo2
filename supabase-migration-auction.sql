@@ -84,12 +84,20 @@ CREATE INDEX IF NOT EXISTS idx_bids_user_id ON bids(user_id);
 -- Function to update auction current price and winner
 CREATE OR REPLACE FUNCTION update_auction_on_bid()
 RETURNS TRIGGER AS $$
+DECLARE
+  auction_current_price numeric(12,2);
 BEGIN
-  UPDATE auctions
-  SET current_price = NEW.amount,
-      current_winner_id = NEW.user_id
-  WHERE id = NEW.auction_id
-    AND NEW.amount > current_price;
+  -- Get current auction price
+  SELECT current_price INTO auction_current_price FROM auctions WHERE id = NEW.auction_id;
+  
+  -- Update auction if new bid is higher
+  IF NEW.amount > auction_current_price THEN
+    UPDATE auctions
+    SET current_price = NEW.amount,
+        current_winner_id = NEW.user_id
+    WHERE id = NEW.auction_id;
+  END IF;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
