@@ -386,19 +386,19 @@ const ProfilePage = () => {
 
   const ProductForm = () => {
     const handleTitleChange = (e) => {
-      setNewProduct({ ...newProduct, title: e.target.value });
+      setNewProduct(prev => ({ ...prev, title: e.target.value }));
     };
-    
+
     const handleDescriptionChange = (e) => {
-      setNewProduct({ ...newProduct, description: e.target.value });
+      setNewProduct(prev => ({ ...prev, description: e.target.value }));
     };
-    
+
     const handlePriceChange = (e) => {
-      setNewProduct({ ...newProduct, price: e.target.value });
+      setNewProduct(prev => ({ ...prev, price: e.target.value }));
     };
 
     return (
-      <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
+  <form onSubmit={handleCreateProduct} className="space-y-4 bg-white/30 backdrop-blur-xl p-6 rounded-2xl border border-white/40 shadow-[0_2px_15px_rgba(0,0,0,0.05)] animate-fade-in">
         <input 
           ref={productImageInputRef} 
           type="file" 
@@ -441,7 +441,7 @@ const ProfilePage = () => {
           <label className="text-sm font-medium text-gray-700 block mb-1">Başlık</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
             value={newProduct.title}
             onChange={handleTitleChange}
             placeholder="Ürün adı"
@@ -451,7 +451,7 @@ const ProfilePage = () => {
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
           <textarea
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
             rows={3}
             value={newProduct.description}
             onChange={handleDescriptionChange}
@@ -463,15 +463,15 @@ const ProfilePage = () => {
           <input
             type="number"
             step="0.01"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
             value={newProduct.price}
             onChange={handlePriceChange}
             placeholder="0.00"
           />
         </div>
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)}>İptal</Button>
-          <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Kaydet</Button>
+          <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)} className="rounded-2xl bg-white/20 border border-white/40 hover:bg-gray-100 backdrop-blur-lg transition-all">İptal</Button>
+          <Button type="submit" className="rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 focus:shadow-[0_0_10px_rgba(123,63,228,0.5)] transition-all">Kaydet</Button>
         </div>
       </form>
     );

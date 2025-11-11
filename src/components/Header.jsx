@@ -30,7 +30,7 @@ const Header = ({ onAuthClick }) => {
       <div className="flex items-center gap-8">
         <Link to="/" className="flex items-center gap-2">
           <img 
-            src="https://raw.githubusercontent.com/yosoyorhan/repo2/refs/heads/main/src/logocumcum-no-bg-beyaz.png" 
+            src="https://raw.githubusercontent.com/yosoyorhan/repo2/refs/heads/main/src/logocumcum%20(1)-no-bg-HD.png" 
             alt="Livennervar Logo" 
             className="w-10 h-10 object-contain"
           />
