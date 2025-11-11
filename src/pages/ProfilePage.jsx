@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import ProductPopup from '@/components/ProductPopup';
 
 const ProfilePage = () => {
   const { userId } = useParams();
@@ -15,14 +16,11 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
-  const productImageInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [products, setProducts] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState({ title: '', description: '', price: '', image_url: '' });
-  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [collections, setCollections] = useState([]);
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const [newCollection, setNewCollection] = useState({ name: '', description: '' });
@@ -230,85 +228,9 @@ const ProfilePage = () => {
     }
   };
 
-  const handleCreateProduct = async (e, addAnother = false) => {
-    e.preventDefault();
-    if (!user) {
-      toast({ title: 'Giriş yapmalısınız', variant: 'destructive' });
-      return;
-    }
-    if (!newProduct.title.trim()) {
-      toast({ title: 'Başlık gerekli', variant: 'destructive' });
-      return;
-    }
-    const priceNumber = parseFloat(newProduct.price);
-    if (isNaN(priceNumber) || priceNumber < 0) {
-      toast({ title: 'Fiyat geçerli değil', variant: 'destructive' });
-      return;
-    }
-    try {
-      const insertData = {
-        user_id: user.id,
-        title: newProduct.title.trim(),
-        description: newProduct.description.trim() || null,
-        price: priceNumber,
-        image_url: newProduct.image_url || null
-      };
-      const { data, error } = await supabase
-        .from('products')
-        .insert(insertData)
-        .select()
-        .single();
-      if (error) throw error;
-      setProducts(prev => [data, ...prev]);
-      setNewProduct({ title: '', description: '', price: '', image_url: '' });
-      
-      if (addAnother) {
-        toast({ title: '✅ Ürün eklendi', description: 'Yeni ürün ekleyebilirsin' });
-        // Form açık kalacak
-      } else {
-        setIsAddingProduct(false);
-        toast({ title: 'Ürün eklendi ✅' });
-      }
-    } catch (error) {
-      console.error('Error adding product:', error);
-      toast({ title: 'Ürün eklenemedi', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  const handleProductImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Dosya çok büyük', description: 'Maksimum 5MB', variant: 'destructive' });
-      return;
-    }
-
-    try {
-      setIsUploadingProductImage(true);
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/products/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      setNewProduct(prev => ({ ...prev, image_url: publicUrl }));
-      toast({ title: 'Görsel yüklendi! 📸' });
-    } catch (error) {
-      console.error('Error uploading product image:', error);
-      toast({ title: 'Yükleme başarısız', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsUploadingProductImage(false);
-    }
+  // Callback for when a new product is added
+  const handleProductAdded = (newProduct) => {
+    setProducts(prev => [newProduct, ...prev]);
   };
 
   // Koleksiyonları çek
@@ -394,108 +316,6 @@ const ProfilePage = () => {
       toast({ title: 'Ürün çıkarılamadı', variant: 'destructive' });
     }
   };
-
-  const ProductForm = React.memo(() => {
-    const handleTitleChange = React.useCallback((e) => {
-      setNewProduct(prev => ({ ...prev, title: e.target.value }));
-    }, []);
-
-    const handleDescriptionChange = React.useCallback((e) => {
-      setNewProduct(prev => ({ ...prev, description: e.target.value }));
-    }, []);
-
-    const handlePriceChange = React.useCallback((e) => {
-      setNewProduct(prev => ({ ...prev, price: e.target.value }));
-    }, []);
-
-    const handleRemoveImage = React.useCallback(() => {
-      setNewProduct(prev => ({ ...prev, image_url: '' }));
-    }, []);
-
-    const handleImageClick = React.useCallback(() => {
-      productImageInputRef.current?.click();
-    }, []);
-
-    return (
-  <form onSubmit={handleCreateProduct} className="space-y-4 bg-white/30 backdrop-blur-xl p-6 rounded-2xl border border-white/40 shadow-[0_2px_15px_rgba(0,0,0,0.05)] animate-fade-in">
-        <input 
-          ref={productImageInputRef} 
-          type="file" 
-          accept="image/*" 
-          onChange={handleProductImageUpload} 
-          className="hidden" 
-        />
-        
-        {/* Image Upload Preview */}
-        {newProduct.image_url ? (
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden border-2 border-purple-300">
-            <img src={newProduct.image_url} alt="Preview" className="w-full h-full object-cover" />
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="absolute top-2 right-2"
-              onClick={handleRemoveImage}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div 
-            onClick={handleImageClick}
-            className="w-full aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 cursor-pointer flex flex-col items-center justify-center bg-gray-50 transition-colors"
-          >
-            {isUploadingProductImage ? (
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-            ) : (
-              <>
-                <Camera className="h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500">Ürün görseli ekle</p>
-              </>
-            )}
-          </div>
-        )}
-
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Başlık</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
-            value={newProduct.title}
-            onChange={handleTitleChange}
-            placeholder="Ürün adı"
-            autoComplete="off"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Açıklama</label>
-          <textarea
-            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
-            rows={3}
-            value={newProduct.description}
-            onChange={handleDescriptionChange}
-            placeholder="Ürün açıklaması"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Fiyat (₺)</label>
-          <input
-            type="number"
-            step="0.01"
-            className="mt-1 w-full rounded-2xl border border-white/40 bg-white/30 backdrop-blur-md px-4 py-3 shadow-inner focus:ring-2 focus:ring-violet-400/80 focus:outline-none transition-all duration-200 placeholder:text-gray-400 focus:placeholder:opacity-0"
-            value={newProduct.price}
-            onChange={handlePriceChange}
-            placeholder="0.00"
-          />
-        </div>
-        <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)} className="rounded-2xl bg-white/20 border border-white/40 hover:bg-gray-100 backdrop-blur-lg transition-all">İptal</Button>
-          <Button type="button" onClick={(e) => handleCreateProduct(e, true)} className="rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all">Kaydet ve Yeni Ekle</Button>
-          <Button type="submit" className="rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 focus:shadow-[0_0_10px_rgba(123,63,228,0.5)] transition-all">Kaydet</Button>
-        </div>
-      </form>
-    );
-  });
 
   const handleShareProfile = () => {
     const url = window.location.href;
@@ -795,13 +615,9 @@ const ProfilePage = () => {
             <div className="space-y-6">
               {isOwnProfile && (
                 <div>
-                  {!isAddingProduct ? (
-                    <Button onClick={() => setIsAddingProduct(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
-                      <PlusCircle className="h-4 w-4 mr-2" /> Ürün Ekle
-                    </Button>
-                  ) : (
-                    <ProductForm />
-                  )}
+                  <Button onClick={() => setIsAddingProduct(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <PlusCircle className="h-4 w-4 mr-2" /> Ürün Ekle
+                  </Button>
                 </div>
               )}
               {products.length === 0 ? (
@@ -983,6 +799,14 @@ const ProfilePage = () => {
           profile={profile}
           onSave={handleSaveProfile}
           onClose={() => setIsEditing(false)}
+        />
+      )}
+
+      {/* Product Popup */}
+      {isAddingProduct && (
+        <ProductPopup 
+          onClose={() => setIsAddingProduct(false)} 
+          onProductAdded={handleProductAdded}
         />
       )}
     </div>
