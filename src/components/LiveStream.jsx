@@ -871,11 +871,21 @@ const LiveStream = ({ streamId }) => {
 
         console.log('📝 Auction updated, error:', updateError);
 
-        // Winner bilgisini current_winner_username'den al
+        // Kazanan kullanıcı adını profilden çek (fallback)
+        let winnerUsername = activeAuction.current_winner_username;
+        if (!winnerUsername) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', highestBid.user_id)
+            .maybeSingle();
+          winnerUsername = prof?.username || (highestBid.user_id?.slice(0,8) + '...') || 'Anonim';
+        }
+
         const winnerData = {
           ...highestBid,
           profiles: {
-            username: activeAuction.current_winner_username || 'Anonim'
+            username: winnerUsername
           }
         };
 
@@ -884,7 +894,7 @@ const LiveStream = ({ streamId }) => {
         
         toast({ 
           title: '🎉 Açık artırma bitti!', 
-          description: `Kazanan: ${winnerData.profiles.username} - ₺${highestBid.amount}`
+          description: `Kazanan: ${winnerUsername} - ₺${Number(highestBid.amount).toFixed(2)}`
         });
       } else {
         // Teklif yoksa sadece kapat
@@ -905,23 +915,31 @@ const LiveStream = ({ streamId }) => {
 
     try {
       // Sales kaydı oluştur
-      await supabase.from('sales').insert({
+      const { error: saleError } = await supabase.from('sales').insert({
         seller_id: streamData.user_id,
         buyer_id: auctionWinner.user_id,
         product_id: activeAuction.product_id,
         auction_id: activeAuction.id,
         final_price: auctionWinner.amount
       });
+      if (saleError) {
+        console.error('❌ Sales insert error:', saleError);
+        toast({ title: 'Satış kaydedilemedi', description: saleError.message, variant: 'destructive' });
+        return;
+      }
 
       // Product'ı satıldı olarak işaretle
       if (activeAuction.product_id) {
-        await supabase
+        const { error: prodError } = await supabase
           .from('products')
           .update({ 
             is_sold: true, 
             winner_user_id: auctionWinner.user_id 
           })
           .eq('id', activeAuction.product_id);
+        if (prodError) console.error('⚠️ Product update error:', prodError);
+        // Sol menüde ürünü pasifleştir (UI güncelle)
+        setCollectionProducts(prev => prev.map(p => p.id === activeAuction.product_id ? { ...p, is_sold: true, winner_user_id: auctionWinner.user_id } : p));
       }
 
       setShowWinnerModal(false);
@@ -1052,13 +1070,15 @@ const LiveStream = ({ streamId }) => {
               <div
                 key={product.id}
                 className={`border rounded-lg p-3 transition-colors ${
-                  isActive 
-                    ? 'border-purple-500 bg-purple-50' 
-                    : hasActiveAuction 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : 'hover:border-purple-500 cursor-pointer'
+                  isActive
+                    ? 'border-purple-500 bg-purple-50'
+                    : product.is_sold
+                      ? 'opacity-50 cursor-not-allowed'
+                      : hasActiveAuction
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-purple-500 cursor-pointer'
                 }`}
-                onClick={() => !hasActiveAuction && !isActive && startAuction(product.id)}
+                onClick={() => !hasActiveAuction && !isActive && !product.is_sold && startAuction(product.id)}
               >
                 {product.image_url && (
                   <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
@@ -1069,15 +1089,19 @@ const LiveStream = ({ streamId }) => {
                 <p className="text-xs text-gray-600 line-clamp-2 mb-2">{product.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-purple-600 font-bold text-sm">₺{Number(product.price).toFixed(2)}</span>
-                  <Button 
-                    size="sm" 
-                    variant={isActive ? "default" : "outline"}
-                    className="text-xs h-7 px-2"
-                    disabled={hasActiveAuction && !isActive}
-                  >
-                    <Gavel className="h-3 w-3 mr-1" />
-                    {isActive ? 'Satışta' : 'Başlat'}
-                  </Button>
+                  {product.is_sold ? (
+                    <span className="text-[11px] px-2 py-1 rounded bg-gray-200 text-gray-700 font-medium">Satıldı</span>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant={isActive ? "default" : "outline"}
+                      className="text-xs h-7 px-2"
+                      disabled={(hasActiveAuction && !isActive) || product.is_sold}
+                    >
+                      <Gavel className="h-3 w-3 mr-1" />
+                      {isActive ? 'Satışta' : 'Başlat'}
+                    </Button>
+                  )}
                 </div>
               </div>
             )})}
