@@ -64,6 +64,8 @@ const LiveStream = ({ streamId }) => {
   const [winnerFadeOut, setWinnerFadeOut] = useState(false);
   // Profil bilgisini tetikleyen kazanan (trigger sadece current_winner_id güncelliyor)
   const [winnerProfile, setWinnerProfile] = useState(null);
+  // Viewer ürün güncellemeleri için kanal referansı (tek kanal, doğru teardown)
+  const productChannelRef = useRef(null);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
@@ -811,45 +813,52 @@ const LiveStream = ({ streamId }) => {
     };
   }, [streamData?.id]);
 
-  // Viewer: aktif açık artırmanın koleksiyonundaki ürünleri yükle
+  // Viewer: aktif açık artırmanın koleksiyonundaki ürünleri yükle ve ürün güncellemelerini dinle
   useEffect(() => {
+    // Önce önceki ürün kanalı varsa kaldır
+    if (productChannelRef.current) {
+      try { supabase.removeChannel(productChannelRef.current); } catch {}
+      productChannelRef.current = null;
+    }
+
     const loadViewerCollection = async () => {
       if (!activeAuction || isPublisher) {
         setViewerCollectionProducts([]);
         setViewerCollectionName('');
         return;
       }
-      
+
       if (!activeAuction.collection_id) {
         console.warn('⚠️ Viewer: activeAuction has no collection_id', activeAuction);
         setViewerCollectionProducts([]);
         setViewerCollectionName('');
         return;
       }
-      
+
       console.log('🔍 Viewer: Loading collection', activeAuction.collection_id);
       const { data, error } = await supabase
         .from('collections')
         .select(`id, name, collection_products(product_id, products(*))`)
         .eq('id', activeAuction.collection_id)
         .single();
-      
+
       if (error) {
         console.error('❌ Viewer: Error loading collection', error);
         return;
       }
-      
+
       if (data) {
         const products = (data.collection_products || []).map(cp => cp.products).filter(Boolean);
         console.log('✅ Viewer: Loaded', products.length, 'products from', data.name);
         setViewerCollectionProducts(products);
         setViewerCollectionName(data.name || 'Koleksiyon');
-        
-        // Realtime subscription for product updates (is_sold changes)
-        if (!isPublisher && activeAuction.collection_id) {
+
+        // Ürün güncellemeleri (is_sold vb.) için tek bir kanal aç ve referansta tut
+        if (!isPublisher && products.length > 0) {
           const productIds = products.map(p => p.id);
+          const channelName = `products:${activeAuction.collection_id}`;
           const productChannel = supabase
-            .channel(`products:${activeAuction.collection_id}`)
+            .channel(channelName)
             .on('postgres_changes', {
               event: 'UPDATE',
               schema: 'public',
@@ -857,19 +866,30 @@ const LiveStream = ({ streamId }) => {
               filter: `id=in.(${productIds.join(',')})`
             }, (payload) => {
               console.log('🔄 Product updated:', payload.new);
-              setViewerCollectionProducts(prev => prev.map(p => 
+              setViewerCollectionProducts(prev => prev.map(p =>
                 p.id === payload.new.id ? { ...p, ...payload.new } : p
               ));
             })
-            .subscribe();
-          
-          return () => {
-            supabase.removeChannel(productChannel);
-          };
+            .subscribe((status) => {
+              if (status === 'SUBSCRIBED') {
+                console.log(`📡 Subscribed to ${channelName} for ${productIds.length} products`);
+              }
+            });
+
+          productChannelRef.current = productChannel;
         }
       }
     };
+
     loadViewerCollection();
+
+    // Cleanup: sayfa/auction değişiminde kanalı kaldır
+    return () => {
+      if (productChannelRef.current) {
+        try { supabase.removeChannel(productChannelRef.current); } catch {}
+        productChannelRef.current = null;
+      }
+    };
   }, [activeAuction?.collection_id, isPublisher]);
 
   // Kazanan profilini çek (current_winner_id değiştiğinde)
