@@ -20,7 +20,8 @@ async function runMigration() {
     const migrations = [
       'supabase-migration-orientation.sql',
       'supabase-migration-profile-enhancements.sql',
-      'supabase-migration-storage-avatars.sql'
+      'supabase-migration-storage-avatars.sql',
+      'supabase-migration-products.sql'
     ];
     
     for (const migrationFile of migrations) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck } from 'lucide-react';
+import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
@@ -17,6 +17,9 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({ title: '', description: '', price: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -26,6 +29,7 @@ const ProfilePage = () => {
   useEffect(() => {
     fetchProfile();
     fetchStreams();
+    fetchProducts();
     if (user && userId) {
       checkFollowStatus();
     }
@@ -38,12 +42,17 @@ const ProfilePage = () => {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      setProfile(data);
+      if (!data) {
+        setProfile(null);
+      } else {
+        setProfile(data);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // 406 durumunda .maybeSingle zaten error döndürmez; yine de genel hata için toast göster.
       toast({ title: 'Profil yüklenemedi', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -164,13 +173,14 @@ const ProfilePage = () => {
     try {
       setIsUploadingAvatar(true);
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+  const fileExt = file.name.split('.').pop();
+  // RLS politikası klasör ismini user.id bekliyor; path içinde ilk segment user id olmalı
+  const fileName = `${Date.now()}.${fileExt}`;
+  const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -194,6 +204,101 @@ const ProfilePage = () => {
       setIsUploadingAvatar(false);
     }
   };
+
+  // Ürünleri çek
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, title, description, price, image_url, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      toast({ title: 'Giriş yapmalısınız', variant: 'destructive' });
+      return;
+    }
+    if (!newProduct.title.trim()) {
+      toast({ title: 'Başlık gerekli', variant: 'destructive' });
+      return;
+    }
+    const priceNumber = parseFloat(newProduct.price);
+    if (isNaN(priceNumber) || priceNumber < 0) {
+      toast({ title: 'Fiyat geçerli değil', variant: 'destructive' });
+      return;
+    }
+    try {
+      const insertData = {
+        user_id: user.id,
+        title: newProduct.title.trim(),
+        description: newProduct.description.trim() || null,
+        price: priceNumber,
+        image_url: null
+      };
+      const { data, error } = await supabase
+        .from('products')
+        .insert(insertData)
+        .select()
+        .single();
+      if (error) throw error;
+      setProducts(prev => [data, ...prev]);
+      setNewProduct({ title: '', description: '', price: '' });
+      setIsAddingProduct(false);
+      toast({ title: 'Ürün eklendi ✅' });
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast({ title: 'Ürün eklenemedi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const ProductForm = () => (
+    <form onSubmit={handleCreateProduct} className="space-y-4 bg-white p-4 rounded-lg border shadow-sm">
+      <div>
+        <label className="text-sm font-medium text-gray-700">Başlık</label>
+        <input
+          type="text"
+          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          value={newProduct.title}
+          onChange={e => setNewProduct(p => ({ ...p, title: e.target.value }))}
+          placeholder="Ürün adı"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-gray-700">Açıklama</label>
+        <textarea
+          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          rows={3}
+          value={newProduct.description}
+          onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))}
+          placeholder="Ürün açıklaması"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-gray-700">Fiyat (₺)</label>
+        <input
+          type="number"
+          step="0.01"
+          className="mt-1 w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+          value={newProduct.price}
+          onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))}
+          placeholder="0.00"
+        />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)}>İptal</Button>
+        <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Kaydet</Button>
+      </div>
+    </form>
+  );
 
   const handleShareProfile = () => {
     const url = window.location.href;
@@ -394,6 +499,13 @@ const ProfilePage = () => {
               <Calendar className="h-4 w-4 mr-2" />
               Aktivite
             </TabsTrigger>
+            <TabsTrigger 
+              value="products" 
+              className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none px-6 py-3"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Ürünlerim
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="streams" className="mt-6">
@@ -472,6 +584,50 @@ const ProfilePage = () => {
             <div className="bg-white rounded-xl p-12 text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">Aktivite geçmişi yakında eklenecek</p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="products" className="mt-6">
+            <div className="space-y-6">
+              {isOwnProfile && (
+                <div>
+                  {!isAddingProduct ? (
+                    <Button onClick={() => setIsAddingProduct(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <PlusCircle className="h-4 w-4 mr-2" /> Ürün Ekle
+                    </Button>
+                  ) : (
+                    <ProductForm />
+                  )}
+                </div>
+              )}
+              {products.length === 0 ? (
+                <div className="bg-white rounded-xl p-12 text-center">
+                  <PlusCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Henüz ürün yok</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {products.map(prod => (
+                    <motion.div
+                      key={prod.id}
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white rounded-xl shadow-md overflow-hidden border cursor-pointer"
+                    >
+                      <div className="aspect-video bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl">
+                        {prod.title.slice(0,1).toUpperCase()}
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <h3 className="font-semibold text-gray-900 line-clamp-2">{prod.title}</h3>
+                        {prod.description && <p className="text-sm text-gray-600 line-clamp-3">{prod.description}</p>}
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-purple-600 font-semibold">₺{Number(prod.price).toFixed(2)}</span>
+                          <span className="text-xs text-gray-500">{new Date(prod.created_at).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
