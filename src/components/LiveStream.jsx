@@ -55,6 +55,9 @@ const LiveStream = ({ streamId }) => {
   const [bidAmount, setBidAmount] = useState('');
   const [auctionBids, setAuctionBids] = useState([]);
   const [auctionChannel, setAuctionChannel] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(30);
+  const [auctionWinner, setAuctionWinner] = useState(null);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
@@ -603,6 +606,8 @@ const LiveStream = ({ streamId }) => {
       const product = collectionProducts.find(p => p.id === productId);
       if (!product) return;
       
+      const now = new Date().toISOString();
+      
       const { data, error } = await supabase
         .from('auctions')
         .insert({
@@ -610,7 +615,9 @@ const LiveStream = ({ streamId }) => {
           product_id: productId,
           starting_price: Number(product.price),
           current_price: Number(product.price),
-          status: 'active'
+          status: 'active',
+          timer_seconds: 30,
+          timer_started_at: now
         })
         .select()
         .single();
@@ -619,7 +626,8 @@ const LiveStream = ({ streamId }) => {
       
       setActiveAuction(data);
       setShowAuctionPanel(true);
-      toast({ title: '🔨 Açık artırma başladı!', description: `${product.title} - ₺${Number(product.price).toFixed(2)}` });
+      setTimeRemaining(30);
+      toast({ title: '🔨 Açık artırma başladı!', description: `${product.title} - ₺${Number(product.price).toFixed(2)} - 30 saniye` });
     } catch (error) {
       console.error('Error starting auction:', error);
       toast({ title: 'Açık artırma başlatılamadı', variant: 'destructive' });
@@ -706,8 +714,8 @@ const LiveStream = ({ streamId }) => {
     
     fetchActiveAuction();
     
-    // Polling: Her 1 saniyede bir güncel fiyatı çek (realtime yedek)
-    const pollingInterval = setInterval(fetchActiveAuction, 1000);
+    // Polling: Her 10ms'de bir güncel fiyatı çek (0.01 saniye - ultra-realtime)
+    const pollingInterval = setInterval(fetchActiveAuction, 10);
     
     // Realtime subscription for auction updates
     const channel = supabase
@@ -748,6 +756,112 @@ const LiveStream = ({ streamId }) => {
       if (channel) supabase.removeChannel(channel);
     };
   }, [streamData?.id]);
+
+  // Auction Timer: 30 saniye geri sayım
+  useEffect(() => {
+    if (!activeAuction || activeAuction.status !== 'active') return;
+
+    const startTime = activeAuction.timer_started_at 
+      ? new Date(activeAuction.timer_started_at).getTime()
+      : Date.now();
+    
+    const duration = (activeAuction.timer_seconds || 30) * 1000;
+    
+    const timerInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+      
+      setTimeRemaining(remaining);
+      
+      // Süre doldu
+      if (remaining === 0) {
+        clearInterval(timerInterval);
+        handleAuctionEnd();
+      }
+    }, 100); // Her 100ms'de güncelle (smooth countdown)
+
+    return () => clearInterval(timerInterval);
+  }, [activeAuction?.id, activeAuction?.status, activeAuction?.timer_started_at]);
+
+  const handleAuctionEnd = async () => {
+    if (!activeAuction) return;
+
+    try {
+      // Kazananı belirle (en yüksek teklif sahibi)
+      const { data: highestBid } = await supabase
+        .from('bids')
+        .select('*, profiles:user_id(username, avatar_url)')
+        .eq('auction_id', activeAuction.id)
+        .order('amount', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (highestBid) {
+        // Auction'ı kapat ve kazananı kaydet
+        await supabase
+          .from('auctions')
+          .update({ 
+            status: 'ended', 
+            winner_user_id: highestBid.user_id,
+            ended_at: new Date().toISOString()
+          })
+          .eq('id', activeAuction.id);
+
+        setAuctionWinner(highestBid);
+        setShowWinnerModal(true);
+        
+        toast({ 
+          title: '🎉 Açık artırma bitti!', 
+          description: `Kazanan: ${highestBid.profiles.username} - ₺${highestBid.amount}`
+        });
+      } else {
+        // Teklif yoksa sadece kapat
+        await supabase
+          .from('auctions')
+          .update({ status: 'ended', ended_at: new Date().toISOString() })
+          .eq('id', activeAuction.id);
+        
+        toast({ title: 'Açık artırma sona erdi', description: 'Teklif verilmedi' });
+      }
+    } catch (error) {
+      console.error('Error ending auction:', error);
+    }
+  };
+
+  const handleConfirmSale = async () => {
+    if (!auctionWinner || !activeAuction) return;
+
+    try {
+      // Sales kaydı oluştur
+      await supabase.from('sales').insert({
+        seller_id: streamData.user_id,
+        buyer_id: auctionWinner.user_id,
+        product_id: activeAuction.product_id,
+        auction_id: activeAuction.id,
+        final_price: auctionWinner.amount
+      });
+
+      // Product'ı satıldı olarak işaretle
+      if (activeAuction.product_id) {
+        await supabase
+          .from('products')
+          .update({ 
+            is_sold: true, 
+            winner_user_id: auctionWinner.user_id 
+          })
+          .eq('id', activeAuction.product_id);
+      }
+
+      setShowWinnerModal(false);
+      setActiveAuction(null);
+      setShowAuctionPanel(false);
+      
+      toast({ title: '✅ Satış onaylandı!', description: 'Sonraki ürüne geçebilirsiniz' });
+    } catch (error) {
+      console.error('Error confirming sale:', error);
+      toast({ title: 'Satış kaydedilemedi', variant: 'destructive' });
+    }
+  };
 
   const enterPreview = async () => {
     if (!isPublisher) return;
@@ -1036,7 +1150,15 @@ const LiveStream = ({ streamId }) => {
             </div>
             <div className="space-y-3">
               <div className="bg-purple-50 rounded-lg p-3">
-                <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">Mevcut Fiyat</p>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${timeRemaining <= 10 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+                    <span className={`text-sm font-bold ${timeRemaining <= 10 ? 'text-red-600' : 'text-gray-700'}`}>
+                      {timeRemaining}s
+                    </span>
+                  </div>
+                </div>
                 <p className="text-2xl font-bold text-purple-600">₺{Number(activeAuction.current_price).toFixed(2)}</p>
                 {activeAuction.current_winner_id && (
                   <p className="text-xs text-gray-500 mt-1">
@@ -1166,6 +1288,53 @@ const LiveStream = ({ streamId }) => {
               ))
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Winner Modal */}
+      <Dialog open={showWinnerModal} onOpenChange={setShowWinnerModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-3xl">🎉</span>
+              Açık Artırma Sonuçlandı!
+            </DialogTitle>
+            <DialogDescription>
+              {auctionWinner && (
+                <div className="mt-4 space-y-4">
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-1">Kazanan</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {auctionWinner.profiles?.username || 'Kullanıcı'}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-1">Kazanan Teklif</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      ₺{Number(auctionWinner.amount).toFixed(2)}
+                    </p>
+                  </div>
+                  {isPublisher && (
+                    <div className="pt-4 space-y-2">
+                      <Button 
+                        onClick={handleConfirmSale}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        Satışı Onayla ve Kaydet
+                      </Button>
+                      <Button 
+                        onClick={() => setShowWinnerModal(false)}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Daha Sonra
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
         </DialogContent>
       </Dialog>
       </div>

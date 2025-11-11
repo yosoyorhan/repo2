@@ -37,8 +37,8 @@ const ChatPanel = ({ streamId }) => {
     };
     fetchMessages();
     
-    // Polling: Her 1 saniyede bir mesajları güncelle
-    const pollingInterval = setInterval(fetchMessages, 1000);
+    // Polling: Her 10ms'de bir mesajları güncelle (0.01 saniye - ultra-realtime)
+    const pollingInterval = setInterval(fetchMessages, 10);
 
     // Subscribe to new messages (realtime)
     const messageChannel = supabase.channel(`public:stream_messages:stream=${streamId}`)
