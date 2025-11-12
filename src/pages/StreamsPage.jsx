@@ -9,7 +9,6 @@ import { Video, PlusCircle, Loader2, Zap, User as UserIcon } from 'lucide-react'
 const StreamsPage = () => {
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -48,28 +47,12 @@ const StreamsPage = () => {
     setLoading(false);
   };
 
-  const createStream = async () => {
+  const createStream = () => {
     if (!user) {
       toast({ title: 'Giriş yapmalısın!', description: 'Yayın başlatmak için lütfen giriş yap.', variant: 'destructive' });
       return;
     }
-    setCreating(true);
-    const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
-    const title = `${profile?.username || user.email}'in Yayını`;
-
-    const { data, error } = await supabase
-      .from('streams')
-      .insert({ title, user_id: user.id, status: 'active' })
-      .select()
-      .single();
-
-    if (error) {
-      toast({ title: 'Yayın oluşturulamadı', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Yayın başlatıldı!', description: 'Yayınınız canlıda!' });
-      navigate(`/live/${data.id}`);
-    }
-    setCreating(false);
+    navigate('/start-stream');
   };
 
   const mockStreams = [
@@ -92,10 +75,10 @@ const StreamsPage = () => {
           </h1>
           <Button 
             onClick={createStream} 
-            disabled={creating || !user}
+            disabled={!user}
             className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all"
           >
-            {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+            <PlusCircle className="mr-2 h-4 w-4" />
             Yeni Yayın Başlat
           </Button>
         </div>
@@ -122,17 +105,17 @@ const StreamsPage = () => {
             <p className="text-[#4a4475] mb-6">İlk yayını sen başlat!</p>
             <Button 
               onClick={createStream} 
-              disabled={creating || !user}
+              disabled={!user}
               className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all"
             >
-              {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              <PlusCircle className="mr-2 h-4 w-4" />
               Yayın Başlat
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {displayStreams.map((stream) => (
-              <Link key={stream.id} to={`/live/${stream.id}`}>
+              <Link key={stream.id} to={`/stream/${stream.id}`}>
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer group">
                   <div className="relative aspect-[3/4] bg-gradient-to-br from-purple-100 to-pink-100">
                     <div className="absolute inset-0 flex items-center justify-center">

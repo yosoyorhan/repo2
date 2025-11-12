@@ -225,7 +225,7 @@ const HomePage = () => {
                 ))
               ) : (
                 displayStreams.map(stream => (
-                  <Link key={stream.id} to={`/live/${stream.id}`}>
+                  <Link key={stream.id} to={`/stream/${stream.id}`}>
                     <LiveStreamCard {...stream} />
                   </Link>
                 ))
