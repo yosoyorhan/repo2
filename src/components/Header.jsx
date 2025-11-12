@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, MessageCircle, Bell, Bookmark, X, LayoutDashboard, ShoppingBag, Settings, LogOut } from 'lucide-react';
+import { Search, MessageCircle, Bell, Bookmark, X, LayoutDashboard, ShoppingBag, Settings, LogOut, Package } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const NotificationDropdown = () => (
   <div className="absolute top-14 right-0 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden animate-fadeInDropdown">
@@ -27,32 +28,100 @@ const NotificationDropdown = () => (
 
 const ProfileDrawer = ({ onClose, user, signOut }) => {
   const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('username, full_name, avatar_url')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => setProfile(data));
+    }
+  }, [user]);
+
+  const displayName = profile?.full_name || profile?.username || user?.email?.split('@')[0] || 'Kullanıcı';
+  const avatarInitial = displayName[0]?.toUpperCase() || 'U';
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50 animate-fadeIn" onClick={onClose}></div>
       <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white z-50 shadow-xl animate-slideInRight">
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-bold text-lg text-[#1a1333]">Profil</h3>
+            <h3 className="font-bold text-lg text-[#1a1333]">Menü</h3>
             <button onClick={onClose} className="text-gray-500 hover:text-pink-500 transition-colors"><X size={24} /></button>
           </div>
-          <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xl border border-pink-200 flex-shrink-0">
-              {user?.email?.[0].toUpperCase() || 'U'}
+          
+          {/* User Profile Section */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3 mb-3">
+              {profile?.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={displayName}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-purple-200"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div 
+                className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600 flex items-center justify-center font-bold text-2xl text-white border-2 border-purple-200 flex-shrink-0"
+                style={{ display: profile?.avatar_url ? 'none' : 'flex' }}
+              >
+                {avatarInitial}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-[#1a1333] truncate">{displayName}</h3>
+                <p className="text-xs text-[#4a4475] truncate">{user?.email}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-[#1a1333]">{user?.user_metadata?.username || user?.email}</h3>
-              <Link to={`/profile/${user?.id}`} onClick={onClose} className="text-sm text-purple-600 hover:text-pink-500 cursor-pointer font-medium">Profili Görüntüle</Link>
-            </div>
+            <Link 
+              to={`/profile/${user?.id}`} 
+              onClick={onClose} 
+              className="block w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white text-center py-2 rounded-lg text-sm font-bold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+            >
+              Profili Görüntüle
+            </Link>
           </div>
+
+          {/* Menu Items */}
           <div className="flex-1 overflow-y-auto py-2">
-            <Link to="/streams" onClick={onClose} className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><LayoutDashboard size={18} /><span>Yayıncı Paneli</span></Link>
-            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><ShoppingBag size={18} /><span>Satın Alımlarım</span></a>
-            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><Bookmark size={18} /><span>Kaydedilenler</span></a>
-            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><Settings size={18} /><span>Ayarlar</span></a>
+            <Link to={`/profile/${user?.id}?tab=streams`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+              <LayoutDashboard size={20} className="text-purple-500" />
+              <span className="font-medium">Yayınlarım</span>
+            </Link>
+            <Link to={`/profile/${user?.id}?tab=collections`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+              <ShoppingBag size={20} className="text-pink-500" />
+              <span className="font-medium">Koleksiyonlarım</span>
+            </Link>
+            <Link to={`/profile/${user?.id}?tab=purchased`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+              <Package size={20} className="text-orange-500" />
+              <span className="font-medium">Satın Alımlarım</span>
+            </Link>
+            <Link to={`/profile/${user?.id}?tab=activity`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+              <Bookmark size={20} className="text-purple-500" />
+              <span className="font-medium">Aktivite</span>
+            </Link>
+            <div className="my-2 border-t border-gray-200"></div>
+            <Link to={`/profile/${user?.id}?tab=about`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+              <Settings size={20} className="text-gray-500" />
+              <span className="font-medium">Ayarlar</span>
+            </Link>
           </div>
+
+          {/* Logout Button */}
           <div className="p-4 border-t border-gray-200">
-            <button onClick={() => { signOut(); onClose(); }} className="w-full px-5 py-3 text-md text-red-500 bg-red-50 hover:bg-red-100 font-medium flex items-center space-x-3 rounded-lg transition-colors"><LogOut size={18} /><span>Çıkış Yap</span></button>
+            <button 
+              onClick={() => { signOut(); onClose(); }} 
+              className="w-full px-5 py-3 text-md text-red-500 bg-red-50 hover:bg-red-100 font-bold flex items-center justify-center space-x-3 rounded-lg transition-colors"
+            >
+              <LogOut size={20} />
+              <span>Çıkış Yap</span>
+            </button>
           </div>
         </div>
       </div>

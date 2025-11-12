@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck, PlusCircle, Package, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [streams, setStreams] = useState([]);
@@ -34,6 +35,7 @@ const ProfilePage = () => {
   const [purchasedItems, setPurchasedItems] = useState([]);
 
   const isOwnProfile = user && profile && user.id === profile.id;
+  const [activeTab, setActiveTab] = useState('streams');
 
   useEffect(() => {
     fetchProfile();
@@ -46,6 +48,10 @@ const ProfilePage = () => {
     if (user && userId) {
       checkFollowStatus();
     }
+
+    // init tab from URL
+    const initialTab = searchParams.get('tab');
+    if (initialTab) setActiveTab(initialTab);
 
     // Realtime subscription for sales updates
     const salesChannel = supabase
@@ -71,7 +77,14 @@ const ProfilePage = () => {
     return () => {
       supabase.removeChannel(salesChannel);
     };
-  }, [userId, user]);
+  }, [userId, user, searchParams]);
+
+  const handleTabChange = (value) => {
+    setActiveTab(value);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', value);
+    setSearchParams(newParams, { replace: true });
+  };
 
   const fetchProfile = async () => {
     try {
@@ -489,7 +502,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#fbfaff]">
       {/* Profile Header */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 h-48 sm:h-64"></div>
       
@@ -632,8 +645,8 @@ const ProfilePage = () => {
           </motion.div>
         </div>
 
-        {/* Tabs Section */}
-        <Tabs defaultValue="streams" className="mb-12">
+  {/* Tabs Section */}
+  <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-12">
           <TabsList className="bg-white border-b w-full justify-start rounded-none h-auto p-0">
             <TabsTrigger 
               value="streams" 
