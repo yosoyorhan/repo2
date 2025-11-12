@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { AnimatePresence, motion } from 'framer-motion';
 
-const ChatPanel = ({ streamId }) => {
+const ChatPanel = ({ streamId, isMobile = false }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [message, setMessage] = useState('');
@@ -113,8 +113,24 @@ const ChatPanel = ({ streamId }) => {
     }
   };
 
+  // MOBİL FLOATING CHAT
+  if (isMobile) {
+    return (
+      <div className="h-48 overflow-y-auto space-y-2 [mask-image:linear-gradient(to_bottom,transparent_0%,black_20%,black_100%)] pointer-events-none">
+        {chatMessages.slice(-10).map((msg) => (
+          <div key={msg.id} className="text-sm bg-black/40 text-white rounded-lg p-2 max-w-[80%] backdrop-blur-sm">
+            <span className="font-bold text-pink-400">{msg.profiles?.username || 'Kullanıcı'}: </span>
+            <span>{msg.content}</span>
+          </div>
+        ))}
+        <div ref={scrollRef} />
+      </div>
+    );
+  }
+
+  // MASAÜSTÜ NORMAL CHAT
   return (
-    <div className="bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="bg-white border-l border-gray-200 flex flex-col h-full rounded-xl shadow-md">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col">
         <TabsList className="w-full grid grid-cols-2 bg-white rounded-none border-b border-gray-200">
           <TabsTrigger value="chat" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-purple-600 text-[#4a4475] flex items-center gap-2">

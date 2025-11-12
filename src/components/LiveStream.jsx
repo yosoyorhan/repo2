@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
-const LiveStream = ({ streamId, initialCollectionId, initialCollectionName }) => {
+const LiveStream = ({ streamId, initialCollectionId, initialCollectionName, onProductsUpdate, layoutMode = 'default' }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -30,7 +30,7 @@ const LiveStream = ({ streamId, initialCollectionId, initialCollectionName }) =>
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewerMuted, setViewerMuted] = useState(true);
-  const [orientation, setOrientation] = useState('landscape'); // 'portrait' | 'landscape'
+  const [orientation, setOrientation] = useState('portrait'); // Yeni tasarım için portrait default
   const [facingMode, setFacingMode] = useState('user'); // 'user' | 'environment'
   const navBlockRef = useRef(false);
 
@@ -69,6 +69,14 @@ const LiveStream = ({ streamId, initialCollectionId, initialCollectionName }) =>
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
 
+  // Ürün listesi değiştiğinde parent'ı bilgilendir
+  useEffect(() => {
+    if (onProductsUpdate) {
+      const products = isPublisher ? collectionProducts : viewerCollectionProducts;
+      onProductsUpdate(products);
+    }
+  }, [collectionProducts, viewerCollectionProducts, isPublisher, onProductsUpdate]);
+
   // Initial collection'ı yükle (StartStreamPage'den geldiyse)
   useEffect(() => {
     if (initialCollectionId && isPublisher && !selectedCollection) {
@@ -99,6 +107,13 @@ const LiveStream = ({ streamId, initialCollectionId, initialCollectionName }) =>
               description: `${collection.name} - ${products.length} ürün hazır` 
             });
           }
+        } catch (error) {
+          console.error('Error loading initial collection:', error);
+        }
+      };
+      loadInitialCollection();
+    }
+  }, [initialCollectionId, isPublisher, selectedCollection, toast]);          }
         } catch (error) {
           console.error('Error loading initial collection:', error);
         }
