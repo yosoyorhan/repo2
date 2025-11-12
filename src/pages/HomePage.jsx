@@ -1,10 +1,141 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Camera, ShoppingBag, Users, Eye, TrendingUp, Play, Heart, Zap, MessageCircle } from 'lucide-react';
+import { Camera, Zap, Globe, Home, PlusCircle, User, Search, Bookmark } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+
+// Sidebar Component
+const Sidebar = () => {
+  const categories = [
+    { name: 'Sizin İçin', active: true },
+    { name: 'Erkek Modası', active: false },
+    { name: 'Şeker & Atıştırmalık', active: false },
+    { name: 'Yiyecek & İçecek', active: false },
+    { name: 'Sokak Giyimi', active: false },
+    { name: 'Oyuncak & Hobi', active: false },
+    { name: 'Sneakers', active: false },
+    { name: 'Vintage Giyim', active: false },
+    { name: 'Diğer Oyuncaklar', active: false },
+    { name: 'Modern Sanat', active: false },
+    { name: 'Labubu & Sürpriz Kutu', active: false },
+    { name: 'Paletler', active: false },
+  ];
+
+  const footerLinks = ['Blog', 'Kariyer', 'Hakkımızda', 'SSS', 'Partnerler'];
+  const legalLinks = ['Gizlilik', 'Koşullar', 'İletişim'];
+
+  return (
+    <aside className="hidden lg:block w-60 h-[calc(100vh-80px)] sticky top-20 bg-[#fcfbff] border-r border-gray-200 p-6 flex flex-col overflow-y-auto custom-scrollbar">
+      <div className="flex-1">
+        <h2 className="text-xl font-bold text-[#1a1333] mb-4">Merhaba, Kullanıcı!</h2>
+        <nav className="flex flex-col space-y-3">
+          {categories.map((cat) => (
+            <a
+              key={cat.name}
+              href="#"
+              className={`text-md ${
+                cat.active
+                  ? 'text-purple-600 font-bold border-r-2 border-purple-600'
+                  : 'text-[#4a4475] hover:text-pink-500'
+              } transition-colors pr-2`}
+            >
+              {cat.name}
+            </a>
+          ))}
+        </nav>
+      </div>
+      
+      <div className="pt-6 border-t border-gray-200">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#4a4475]">
+          {footerLinks.map(link => (
+            <a key={link} href="#" className="hover:text-pink-500">{link}</a>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#4a4475] mt-2">
+          {legalLinks.map(link => (
+            <a key={link} href="#" className="hover:text-pink-500">{link}</a>
+          ))}
+        </div>
+        <button className="flex items-center space-x-2 text-sm text-[#4a4475] hover:text-pink-500 mt-4 transition-colors">
+          <Globe size={16} />
+          <span>Türkçe</span>
+        </button>
+        <p className="text-xs text-[#4a4475]/60 mt-4">© 2025 Livenner Inc.</p>
+      </div>
+    </aside>
+  );
+};
+
+// Live Stream Card
+const LiveStreamCard = ({ user, title, category, viewers, imgUrl, userImg }) => (
+  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer group">
+    <div className="relative aspect-[3/4]">
+      <img 
+        src={imgUrl} 
+        alt={title} 
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+        onError={(e) => e.target.src = 'https://placehold.co/300x400/eceaff/6a4bff?text=Yayın'}
+      />
+      <div className="absolute top-3 left-3 bg-pink-600 text-white text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+        </span>
+        LIVE
+      </div>
+      <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
+        <Zap size={12} className="text-yellow-500" fill="currentColor" /> {viewers}
+      </div>
+    </div>
+    <div className="p-3 sm:p-4">
+      <div className="flex items-center space-x-2 mb-2">
+        <img 
+          src={userImg} 
+          alt={user} 
+          className="w-6 h-6 rounded-full object-cover transition-transform group-hover:scale-110" 
+          onError={(e) => e.target.src = 'https://placehold.co/40x40/6a4bff/white?text=U'}
+        />
+        <span className="text-sm font-bold text-[#2b1d5c] truncate">{user}</span>
+      </div>
+      <h3 className="text-md font-semibold text-[#1a1333] truncate" title={title}>{title}</h3>
+      <p className="text-sm text-orange-600 font-medium truncate">{category}</p>
+    </div>
+  </div>
+);
+
+// Loading Skeleton
+const LiveStreamCardSkeleton = () => (
+  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="relative aspect-[3/4] bg-gray-200 animate-pulse"></div>
+    <div className="p-3 sm:p-4">
+      <div className="flex items-center space-x-2 mb-2">
+        <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse"></div>
+        <div className="w-3/4 h-4 bg-gray-200 animate-pulse rounded"></div>
+      </div>
+      <div className="w-full h-4 bg-gray-200 animate-pulse rounded mb-1.5"></div>
+      <div className="w-1/2 h-4 bg-gray-200 animate-pulse rounded"></div>
+    </div>
+  </div>
+);
+
+// Category Scroll Card
+const CategoryScrollCard = ({ title, viewers, imgUrl }) => (
+  <div className="flex-shrink-0 w-64 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group">
+    <div className="relative h-24 overflow-hidden">
+      <img 
+        src={imgUrl} 
+        alt={title} 
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        onError={(e) => e.target.src = 'https://placehold.co/256x96/eceaff/6a4bff?text=Kategori'}
+      />
+    </div>
+    <div className="p-4">
+      <h3 className="text-md font-bold text-[#2b1d5c] truncate">{title}</h3>
+      <p className="text-sm text-[#4a4475]">{viewers} İzleyici</p>
+    </div>
+  </div>
+);
 
 const HomePage = () => {
   const [activeStreams, setActiveStreams] = useState([]);
@@ -13,22 +144,8 @@ const HomePage = () => {
 
   useEffect(() => {
     fetchActiveStreams();
-    
-    // Realtime subscription for new streams
-    const streamChannel = supabase.channel('active-streams')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'streams',
-        filter: 'status=eq.active'
-      }, () => {
-        fetchActiveStreams();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(streamChannel);
-    };
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchActiveStreams = async () => {
@@ -48,244 +165,115 @@ const HomePage = () => {
         `)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(12);
+        .limit(8);
 
       if (error) throw error;
       setActiveStreams(data || []);
     } catch (error) {
       console.error('Error fetching streams:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-cyber-dark">
-        <div className="relative">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-pink"></div>
-          <div className="absolute inset-0 animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-        </div>
-      </div>
-    );
-  }
+  const mockStreams = [
+    { id: 1, user: 'Koleksiyoncu', title: 'Nadir Pokemon Kartları Açılışı!', category: 'Kartlar', viewers: '8.2k', imgUrl: 'https://images.unsplash.com/photo-1542779283-429940ce8336?w=400', userImg: 'https://i.pravatar.cc/150?img=1' },
+    { id: 2, user: 'SneakerHead', title: 'Yeni Gelenler: Air Jordan 1', category: 'Sneakers', viewers: '4.1k', imgUrl: 'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=400', userImg: 'https://i.pravatar.cc/150?img=2' },
+    { id: 3, user: 'RetroOyun', title: 'SNES Klasikleri | Canlı Oynanış', category: 'Retro Oyunlar', viewers: '2.5k', imgUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400', userImg: 'https://i.pravatar.cc/150?img=3' },
+    { id: 4, user: 'ModaAvcısı', title: 'Vintage Tişört Pazarı', category: 'Vintage Giyim', viewers: '1.8k', imgUrl: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400', userImg: 'https://i.pravatar.cc/150?img=4' },
+  ];
+
+  const categoriesLike = [
+    { id: 1, title: 'Şeker & Atıştırmalık', viewers: '325 İzleyici', imgUrl: 'https://images.unsplash.com/photo-1560925077-ef0a43ac7c7c?w=400' },
+    { id: 2, title: 'Yiyecek & İçecek', viewers: '180 İzleyici', imgUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400' },
+    { id: 3, title: 'Sokak Giyimi', viewers: '561 İzleyici', imgUrl: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=400' },
+    { id: 4, title: 'Vintage Giyim', viewers: '372 İzleyici', imgUrl: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400' },
+  ];
+
+  const displayStreams = activeStreams.length > 0 ? activeStreams.map(s => ({
+    id: s.id,
+    user: s.profiles?.username || 'Anonim',
+    title: s.title || 'Canlı Yayın',
+    category: 'Canlı',
+    viewers: '0',
+    imgUrl: 'https://placehold.co/300x400/eceaff/6a4bff?text=Live',
+    userImg: s.profiles?.avatar_url || 'https://placehold.co/40x40/6a4bff/white?text=U'
+  })) : mockStreams;
 
   return (
-    <div className="min-h-screen bg-cyber-dark text-white font-sans overflow-hidden relative">
+    <div className="min-h-screen bg-[#fbfaff] text-[#1a1333] font-sans relative">
+      <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-[70%] h-[300px] bg-pink-300/10 blur-[200px] rounded-full -z-10"></div>
       
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-noise opacity-5 pointer-events-none"></div>
-      <div className="absolute top-0 left-0 right-0 h-96 bg-neon-purple/20 blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-neon-pink/10 blur-[120px] rounded-full pointer-events-none"></div>
-
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[240px_1fr]">
+        <Sidebar />
         
-        {/* Top Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-8"
-        >
-          <div className="inline-flex items-center space-x-2 bg-cyber-deepPurple border border-cyber-border rounded-full px-4 py-2">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-            <span className="text-xs font-mono text-neon-cyan">Canlı Mezat Sistemi Aktif</span>
-          </div>
-        </motion.div>
-
-        {/* Main Title */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
-            Koleksiyonluk Ürünleri <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-neon-pink">
-              Canlı Yayında
-            </span> Kap.
-          </h1>
-          
-          <p className="text-gray-400 text-lg max-w-md mx-auto leading-relaxed mb-8">
-            Nadir kartlar, retro oyunlar ve sneakerlar. Toplulukla sohbet et, teklif ver ve kazan.
-          </p>
-
-          <div className="flex flex-wrap gap-4 justify-center">
-            <Link to="/streams">
-              <button className="bg-neon-pink hover:bg-neon-pinkDark text-white px-8 py-4 rounded-xl font-bold text-lg shadow-neon-pink-lg transition-all hover:scale-105 flex items-center gap-2">
-                <Play size={20} fill="currentColor" /> Yayınları İzle
-              </button>
-            </Link>
-            <button className="bg-transparent border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 px-8 py-4 rounded-xl font-bold text-lg transition-all">
-              Nasıl Çalışır?
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Active Streams Section */}
-        {activeStreams.length > 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
-                  Şu Anda Canlı
-                </span>
-              </h2>
-              <Link to="/streams">
-                <Button 
-                  variant="outline" 
-                  className="bg-cyber-surface border-cyber-border hover:border-neon-pink text-white rounded-xl font-mono text-sm"
-                >
-                  Tümünü Gör
-                </Button>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {activeStreams.map((stream, index) => (
-                <motion.div
-                  key={stream.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="group"
-                >
-                  <Link to={`/stream/${stream.id}`}>
-                    {/* Window-Style Stream Card */}
-                    <div className="relative">
-                      {/* Glow Effect */}
-                      <div className="absolute -inset-1 bg-gradient-to-r from-neon-pink to-neon-cyan rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                      
-                      {/* Main Card */}
-                      <div className="relative window-style group-hover:scale-[1.02] transition-transform duration-300">
-                        
-                        {/* Window Header (Mac Style) */}
-                        <div className="window-header">
-                          <div className="flex space-x-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                          </div>
-                          <div className="text-xs font-mono text-gray-500">live_stream.exe</div>
-                        </div>
-
-                        {/* Stream Content */}
-                        <div className="p-1 bg-cyber-dark">
-                          <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden">
-                            
-                            {/* Placeholder or Thumbnail */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Camera className="w-12 h-12 text-gray-700" />
-                            </div>
-                            
-                            {/* LIVE Badge */}
-                            <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
-                              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span> LIVE
-                            </div>
-                            
-                            {/* Viewer Count */}
-                            <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
-                              <Eye size={12} className="text-neon-cyan" /> {Math.floor(Math.random() * 500) + 50}
-                            </div>
-
-                            {/* Interaction Overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                              <div className="flex items-center justify-between">
-                                <div className="flex gap-2">
-                                  <button className="p-2 bg-cyber-deepPurple rounded-full text-neon-pink hover:bg-neon-pink hover:text-white transition-all">
-                                    <Heart size={16} />
-                                  </button>
-                                  <button className="p-2 bg-cyber-deepPurple rounded-full text-neon-cyan hover:bg-neon-cyan hover:text-white transition-all">
-                                    <ShoppingBag size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Stream Info Footer */}
-                        <div className="bg-cyber-deepPurple p-4 border-t border-cyber-borderLight">
-                          <h3 className="text-white font-bold text-sm mb-2 line-clamp-1">
-                            {stream.title || 'Canlı Yayın'}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-neon-pink to-neon-cyan flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">
-                                {stream.profiles?.username?.charAt(0).toUpperCase() || '?'}
-                              </span>
-                            </div>
-                            <span className="text-xs text-gray-400 font-mono">
-                              @{stream.profiles?.username || 'anonymous'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
+          <main>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <LiveStreamCardSkeleton key={index} />
+                ))
+              ) : (
+                displayStreams.map(stream => (
+                  <Link key={stream.id} to={`/live/${stream.id}`}>
+                    <LiveStreamCard {...stream} />
                   </Link>
-                </motion.div>
+                ))
+              )}
+            </div>
+          </main>
+
+          <section className="my-8 lg:my-10">
+            <h2 className="text-2xl font-bold text-[#1a1333] mb-4">Sevebileceğin Kategoriler</h2>
+            <div className="flex space-x-4 overflow-x-auto pb-4 custom-scrollbar">
+              {categoriesLike.map(cat => (
+                <CategoryScrollCard key={cat.id} {...cat} />
               ))}
             </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            className="text-center py-20"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <div className="window-style max-w-md mx-auto">
-              <div className="window-header">
-                <div className="flex space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                </div>
-                <div className="text-xs font-mono text-gray-500">no_streams.exe</div>
-              </div>
-              <div className="p-12 bg-cyber-dark">
-                <Camera className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-400 mb-2">Şu anda aktif yayın yok</h3>
-                <p className="text-gray-500 mb-6 font-mono text-sm">// İlk yayını sen başlat!</p>
-                <Link to="/streams">
-                  <button className="bg-neon-pink hover:bg-neon-pinkDark text-white px-6 py-3 rounded-lg font-bold text-sm shadow-neon-pink transition-all flex items-center gap-2 mx-auto">
-                    <Camera className="h-4 w-4" />
-                    Yayın Başlat
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        )}
+          </section>
 
-        {/* Features Section */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          {[
-            { title: 'Hızlı Kargo', icon: '📦', desc: 'Güvenli ve sigortalı gönderim.' },
-            { title: 'Orijinallik', icon: '🛡️', desc: 'Uzmanlar tarafından doğrulandı.' },
-            { title: 'Topluluk', icon: '👾', desc: 'Benzer ilgi alanlarına sahip kişiler.' },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
-              className="p-6 rounded-2xl bg-cyber-darkPurple border border-cyber-border hover:border-neon-pink/50 transition-colors group cursor-default"
-            >
-              <div className="text-4xl mb-4 grayscale group-hover:grayscale-0 transition-all duration-500">{item.icon}</div>
-              <h3 className="text-white font-bold text-lg mb-2">{item.title}</h3>
-              <p className="text-gray-400 text-sm">{item.desc}</p>
-            </motion.div>
-          ))}
+          <section>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <LiveStreamCardSkeleton key={`skeleton-${index}`} />
+                ))
+              ) : (
+                [...displayStreams].reverse().map(stream => (
+                  <Link key={`rev-${stream.id}`} to={`/live/${stream.id}`}>
+                    <LiveStreamCard {...stream} />
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
         </div>
-      </main>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-[#fbfaff] border-t-2 border-gray-200 z-40 grid grid-cols-5 items-center">
+        <Link to="/" className="flex flex-col items-center justify-center text-purple-600">
+          <Home size={24} />
+          <span className="text-xs font-bold">Anasayfa</span>
+        </Link>
+        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+          <Search size={24} />
+          <span className="text-xs font-medium">Keşfet</span>
+        </a>
+        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+          <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white rounded-lg p-2 -mt-5 shadow-lg shadow-pink-500/50">
+            <PlusCircle size={24} />
+          </div>
+          <span className="text-xs font-medium mt-1.5">Yayın Yap</span>
+        </a>
+        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+          <Bookmark size={24} />
+          <span className="text-xs font-medium">Kaydedilen</span>
+        </a>
+        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+          <User size={24} />
+          <span className="text-xs font-medium">Profil</span>
+        </a>
+      </div>
     </div>
   );
 };
