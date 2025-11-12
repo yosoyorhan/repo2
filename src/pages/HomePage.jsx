@@ -1,47 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Camera, Zap, Globe, Home, PlusCircle, User, Search, Bookmark } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Sidebar Component
-const Sidebar = () => {
+const Sidebar = ({ user }) => {
+  const [activeCategory, setActiveCategory] = useState('Sizin İçin');
+  
   const categories = [
-    { name: 'Sizin İçin', active: true },
-    { name: 'Erkek Modası', active: false },
-    { name: 'Şeker & Atıştırmalık', active: false },
-    { name: 'Yiyecek & İçecek', active: false },
-    { name: 'Sokak Giyimi', active: false },
-    { name: 'Oyuncak & Hobi', active: false },
-    { name: 'Sneakers', active: false },
-    { name: 'Vintage Giyim', active: false },
-    { name: 'Diğer Oyuncaklar', active: false },
-    { name: 'Modern Sanat', active: false },
-    { name: 'Labubu & Sürpriz Kutu', active: false },
-    { name: 'Paletler', active: false },
+    { name: 'Sizin İçin', link: '/' },
+    { name: 'Erkek Modası', link: '/streams' },
+    { name: 'Şeker & Atıştırmalık', link: '/streams' },
+    { name: 'Yiyecek & İçecek', link: '/streams' },
+    { name: 'Sokak Giyimi', link: '/streams' },
+    { name: 'Oyuncak & Hobi', link: '/streams' },
+    { name: 'Sneakers', link: '/streams' },
+    { name: 'Vintage Giyim', link: '/streams' },
+    { name: 'Diğer Oyuncaklar', link: '/streams' },
+    { name: 'Modern Sanat', link: '/streams' },
+    { name: 'Labubu & Sürpriz Kutu', link: '/streams' },
+    { name: 'Paletler', link: '/streams' },
   ];
 
   const footerLinks = ['Blog', 'Kariyer', 'Hakkımızda', 'SSS', 'Partnerler'];
   const legalLinks = ['Gizlilik', 'Koşullar', 'İletişim'];
 
+  const getUserDisplayName = () => {
+    if (!user) return 'Kullanıcı';
+    return user.user_metadata?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
+  };
+
   return (
     <aside className="hidden lg:block w-60 h-[calc(100vh-80px)] sticky top-20 bg-[#fcfbff] border-r border-gray-200 p-6 flex flex-col overflow-y-auto custom-scrollbar">
       <div className="flex-1">
-        <h2 className="text-xl font-bold text-[#1a1333] mb-4">Merhaba, Kullanıcı!</h2>
+        <h2 className="text-xl font-bold text-[#1a1333] mb-4">Merhaba, {getUserDisplayName()}!</h2>
         <nav className="flex flex-col space-y-3">
           {categories.map((cat) => (
-            <a
+            <Link
               key={cat.name}
-              href="#"
+              to={cat.link}
+              onClick={() => setActiveCategory(cat.name)}
               className={`text-md ${
-                cat.active
+                activeCategory === cat.name
                   ? 'text-purple-600 font-bold border-r-2 border-purple-600'
                   : 'text-[#4a4475] hover:text-pink-500'
               } transition-colors pr-2`}
             >
               {cat.name}
-            </a>
+            </Link>
           ))}
         </nav>
       </div>
@@ -141,6 +150,8 @@ const HomePage = () => {
   const [activeStreams, setActiveStreams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchActiveStreams();
@@ -203,7 +214,7 @@ const HomePage = () => {
       <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-[70%] h-[300px] bg-pink-300/10 blur-[200px] rounded-full -z-10"></div>
       
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[240px_1fr]">
-        <Sidebar />
+        <Sidebar user={user} />
         
         <div className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
           <main>
@@ -255,24 +266,36 @@ const HomePage = () => {
           <Home size={24} />
           <span className="text-xs font-bold">Anasayfa</span>
         </Link>
-        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+        <Link to="/streams" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
           <Search size={24} />
           <span className="text-xs font-medium">Keşfet</span>
-        </a>
-        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+        </Link>
+        <button 
+          onClick={() => {
+            if (!user) {
+              toast({ title: 'Giriş yapmalısın!', description: 'Yayın başlatmak için lütfen giriş yap.' });
+              return;
+            }
+            navigate('/streams');
+          }}
+          className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors"
+        >
           <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white rounded-lg p-2 -mt-5 shadow-lg shadow-pink-500/50">
             <PlusCircle size={24} />
           </div>
           <span className="text-xs font-medium mt-1.5">Yayın Yap</span>
-        </a>
-        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+        </button>
+        <Link to="/streams" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
           <Bookmark size={24} />
           <span className="text-xs font-medium">Kaydedilen</span>
-        </a>
-        <a href="#" className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors">
+        </Link>
+        <Link 
+          to={user ? `/profile/${user.id}` : '/streams'} 
+          className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors"
+        >
           <User size={24} />
           <span className="text-xs font-medium">Profil</span>
-        </a>
+        </Link>
       </div>
     </div>
   );

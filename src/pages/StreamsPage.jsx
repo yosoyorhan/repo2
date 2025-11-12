@@ -4,8 +4,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Video, PlusCircle, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Video, PlusCircle, Loader2, Zap, User as UserIcon } from 'lucide-react';
 
 const StreamsPage = () => {
   const [streams, setStreams] = useState([]);
@@ -16,29 +15,7 @@ const StreamsPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchStreams = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('streams')
-        .select(`
-          id,
-          title,
-          status,
-          user_id,
-          profiles ( username )
-        `)
-        .eq('status', 'active');
-      
-      if (error) {
-        toast({ title: 'Yayınlar alınamadı', description: error.message, variant: 'destructive' });
-      } else {
-        setStreams(data || []);
-      }
-      setLoading(false);
-    };
-
     fetchStreams();
-
     const channel = supabase.channel('public:streams')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'streams' }, fetchStreams)
       .subscribe();
@@ -46,7 +23,30 @@ const StreamsPage = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, []);
+
+  const fetchStreams = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('streams')
+      .select(`
+        id,
+        title,
+        status,
+        user_id,
+        created_at,
+        profiles ( username, full_name, avatar_url )
+      `)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({ title: 'Yayınlar alınamadı', description: error.message, variant: 'destructive' });
+    } else {
+      setStreams(data || []);
+    }
+    setLoading(false);
+  };
 
   const createStream = async () => {
     if (!user) {
@@ -55,99 +55,127 @@ const StreamsPage = () => {
     }
     setCreating(true);
     const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
-    const title = `${profile?.username || user.email}'s Stream`;
+    const title = `${profile?.username || user.email}'in Yayını`;
 
     const { data, error } = await supabase
       .from('streams')
-      .insert({ title, user_id: user.id, status: 'scheduled' })
+      .insert({ title, user_id: user.id, status: 'active' })
       .select()
       .single();
 
     if (error) {
       toast({ title: 'Yayın oluşturulamadı', description: error.message, variant: 'destructive' });
     } else {
+      toast({ title: 'Yayın başlatıldı!', description: 'Yayınınız canlıda!' });
       navigate(`/live/${data.id}`);
     }
     setCreating(false);
   };
 
+  const mockStreams = [
+    { id: 'm1', title: 'Vintage Kart Açılışı ��', profiles: { username: 'KartKoleksiyoncusu', avatar_url: 'https://i.pravatar.cc/150?img=11' }, viewers: '2.3k' },
+    { id: 'm2', title: 'Retro Oyun Konsolu Tanıtımı', profiles: { username: 'RetroGamer90', avatar_url: 'https://i.pravatar.cc/150?img=12' }, viewers: '1.8k' },
+    { id: 'm3', title: 'Sneaker Mezadı - Air Jordan', profiles: { username: 'SneakerKing', avatar_url: 'https://i.pravatar.cc/150?img=13' }, viewers: '3.5k' },
+    { id: 'm4', title: 'Anime Figür Koleksiyonu', profiles: { username: 'AnimeLover', avatar_url: 'https://i.pravatar.cc/150?img=14' }, viewers: '920' },
+  ];
+
+  const displayStreams = streams.length > 0 ? streams : mockStreams;
+
   return (
-    <div className="min-h-screen bg-cyber-dark text-white">
-      <div className="absolute inset-0 bg-noise opacity-5 pointer-events-none"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-neon-cyan/10 blur-[120px] rounded-full pointer-events-none"></div>
+    <div className="min-h-screen bg-[#fbfaff] text-[#1a1333]">
+      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-purple-300/10 blur-[200px] rounded-full -z-10"></div>
       
-      <div className="container mx-auto p-8 relative z-10">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-neon-pink to-neon-cyan">Canlı Yayınlar</h1>
-          <Button onClick={createStream} disabled={creating || !user}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600">
+            Canlı Yayınlar
+          </h1>
+          <Button 
+            onClick={createStream} 
+            disabled={creating || !user}
+            className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+          >
             {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
             Yeni Yayın Başlat
           </Button>
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="relative">
-              <Loader2 className="h-12 w-12 animate-spin text-neon-pink" />
-              <Loader2 className="absolute inset-0 h-12 w-12 animate-spin text-neon-cyan" style={{ animationDirection: 'reverse' }} />
-            </div>
-          </div>
-        ) : streams.length === 0 ? (
-          <div className="text-center py-16 window-style max-w-2xl mx-auto">
-            <div className="window-header">
-              <div className="flex space-x-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="aspect-[3/4] bg-gray-200 animate-pulse"></div>
+                <div className="p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse"></div>
+                    <div className="w-3/4 h-4 bg-gray-200 animate-pulse rounded"></div>
+                  </div>
+                  <div className="w-full h-4 bg-gray-200 animate-pulse rounded"></div>
+                </div>
               </div>
-              <div className="text-xs font-mono text-gray-500">no_streams.exe</div>
-            </div>
-            <div className="p-12 bg-cyber-dark">
-              <Video className="mx-auto h-16 w-16 text-gray-600 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-300">Şu anda aktif yayın bulunmuyor.</h3>
-              <p className="text-gray-500 mt-2 font-mono text-sm">// İlk yayını sen başlat!</p>
-            </div>
+            ))}
+          </div>
+        ) : displayStreams.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border-2 border-gray-200 max-w-2xl mx-auto">
+            <Video className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+            <h2 className="text-2xl font-bold text-[#2b1d5c] mb-2">Henüz Aktif Yayın Yok</h2>
+            <p className="text-[#4a4475] mb-6">İlk yayını sen başlat!</p>
+            <Button 
+              onClick={createStream} 
+              disabled={creating || !user}
+              className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+            >
+              {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              Yayın Başlat
+            </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {streams.map((stream, index) => (
-              <motion.div
-                key={stream.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ scale: 1.02, y: -4 }}
-                className="group"
-              >
-                <Link to={`/live/${stream.id}`}>
-                  <div className="relative">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-neon-pink to-neon-cyan rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                    <div className="relative window-style group-hover:scale-[1.02] transition-transform">
-                      <div className="window-header">
-                        <div className="flex space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        </div>
-                        <div className="text-xs font-mono text-gray-500">live_stream.exe</div>
-                      </div>
-                      <div className="p-1 bg-cyber-dark">
-                        <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg mb-2 flex items-center justify-center relative overflow-hidden">
-                          <Video className="h-12 w-12 text-gray-700" />
-                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            CANLI
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-cyber-deepPurple p-4 border-t border-cyber-borderLight">
-                        <h4 className="font-bold text-lg text-white mb-1">{stream.title}</h4>
-                        <p className="text-gray-400 text-sm font-mono">@{stream.profiles?.username || 'anonymous'}</p>
-                      </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {displayStreams.map((stream) => (
+              <Link key={stream.id} to={`/live/${stream.id}`}>
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer group">
+                  <div className="relative aspect-[3/4] bg-gradient-to-br from-purple-100 to-pink-100">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Video className="h-20 w-20 text-purple-300" />
                     </div>
+                    <div className="absolute top-3 left-3 bg-pink-600 text-white text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                      </span>
+                      LIVE
+                    </div>
+                    {stream.viewers && (
+                      <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
+                        <Zap size={12} className="text-yellow-500" fill="currentColor" /> {stream.viewers}
+                      </div>
+                    )}
                   </div>
-                </Link>
-              </motion.div>
+                  <div className="p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      {stream.profiles?.avatar_url ? (
+                        <img 
+                          src={stream.profiles.avatar_url} 
+                          alt={stream.profiles.username} 
+                          className="w-6 h-6 rounded-full object-cover"
+                          onError={(e) => e.target.src = 'https://placehold.co/40x40/6a4bff/white?text=U'}
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-purple-500 flex items-center justify-center">
+                          <UserIcon size={14} className="text-white" />
+                        </div>
+                      )}
+                      <span className="text-sm font-bold text-[#2b1d5c] truncate">
+                        {stream.profiles?.username || 'Anonim Kullanıcı'}
+                      </span>
+                    </div>
+                    <h3 className="text-md font-semibold text-[#1a1333] truncate" title={stream.title}>
+                      {stream.title}
+                    </h3>
+                    <p className="text-sm text-orange-600 font-medium">Canlı Yayın</p>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         )}
