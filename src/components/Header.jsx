@@ -50,8 +50,13 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
     navigate(path);
   };
 
-  // Route değiştiğinde çekmeceyi otomatik kapat
+  // Route değiştiğinde çekmeceyi otomatik kapat (ilk render'da tetikleme)
+  const firstRenderRef = useRef(true);
   useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
     onClose?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
