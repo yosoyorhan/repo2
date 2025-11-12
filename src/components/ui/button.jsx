@@ -4,23 +4,23 @@ import { cva } from 'class-variance-authority';
 import React from 'react';
 
 const buttonVariants = cva(
-	'inline-flex items-center justify-center rounded-lg text-sm font-bold transition-all duration-300 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 font-mono',
+	'inline-flex items-center justify-center rounded-full text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 disabled:pointer-events-none disabled:opacity-50',
 	{
 		variants: {
 			variant: {
-				default: 'bg-neon-pink hover:bg-neon-pinkDark text-white shadow-neon-pink hover:shadow-neon-pink-md hover:scale-105 active:scale-95 border border-neon-pink/20',
+				default: 'bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white shadow hover:shadow-lg hover:opacity-90',
 				destructive:
-          'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95',
+          'bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow',
 				outline:
-          'border border-cyber-border bg-cyber-surface hover:border-neon-cyan hover:text-neon-cyan text-gray-300',
+          'border border-gray-300 bg-white text-[#1a1333] hover:bg-gray-50',
 				secondary:
-          'bg-neon-cyan hover:bg-neon-cyan/80 text-cyber-dark shadow-neon-cyan hover:shadow-neon-cyan-md hover:scale-105 active:scale-95 border border-neon-cyan/20',
-				ghost: 'hover:bg-cyber-surface text-gray-300 hover:text-white',
-				link: 'text-neon-cyan underline-offset-4 hover:underline hover:text-neon-pink',
+          'bg-purple-100 text-purple-700 hover:bg-purple-200',
+				ghost: 'bg-transparent hover:bg-gray-100 text-[#4a4475]',
+				link: 'bg-transparent text-purple-600 underline-offset-4 hover:underline hover:text-pink-500',
 			},
 			size: {
-				default: 'h-11 px-5 py-2',
-				sm: 'h-9 px-3 text-xs',
+				default: 'h-11 px-6',
+				sm: 'h-9 px-4 text-xs',
 				lg: 'h-12 px-8 text-base',
 				icon: 'h-11 w-11',
 			},

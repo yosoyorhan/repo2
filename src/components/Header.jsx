@@ -86,7 +86,7 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
             </div>
             <button
               onClick={() => go(`/profile/${user?.id}`)}
-              className="block w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white text-center py-2 rounded-lg text-sm font-bold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+              className="block w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white text-center py-2 rounded-full text-sm font-bold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
             >
               Profili Görüntüle
             </button>
@@ -121,7 +121,7 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
           <div className="p-4 border-t border-gray-200">
             <button 
               onClick={() => { signOut(); onClose(); }} 
-              className="w-full px-5 py-3 text-md text-red-500 bg-red-50 hover:bg-red-100 font-bold flex items-center justify-center space-x-3 rounded-lg transition-colors"
+              className="w-full px-5 py-3 text-md text-red-500 bg-red-50 hover:bg-red-100 font-bold flex items-center justify-center space-x-3 rounded-full transition-colors"
             >
               <LogOut size={20} />
               <span>Çıkış Yap</span>
@@ -187,7 +187,7 @@ const Header = ({ onAuthClick }) => {
             </div>
           </div>
           <div ref={dropdownRef} className="flex items-center space-x-3 sm:space-x-5 text-[#4a4475]">
-            <button className="hidden lg:block bg-orange-100 text-orange-600 hover:bg-orange-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors" onClick={() => navigate('/streams')}>Yayıncı Ol</button>
+            <button className="hidden lg:block bg-orange-100 text-orange-600 hover:bg-orange-200 px-4 py-2 rounded-full text-sm font-bold transition-colors" onClick={() => navigate('/streams')}>Yayıncı Ol</button>
             <button className="relative hover:text-pink-500 transition-colors lg:hidden" onClick={handleFeatureClick}><Search size={24} /></button>
             <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><MessageCircle size={24} /></button>
             <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><Bookmark size={24} /></button>
@@ -202,7 +202,7 @@ const Header = ({ onAuthClick }) => {
                 </div>
               </button>
             ) : (
-              <Button onClick={onAuthClick} className="rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow hover:shadow-lg transition-all min-h-[44px] px-5 flex items-center gap-2 font-bold">Giriş Yap</Button>
+              <Button onClick={onAuthClick} className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow hover:shadow-lg transition-all min-h-[44px] px-5 flex items-center gap-2 font-bold">Giriş Yap</Button>
             )}
             {openDropdown === 'notifications' && <NotificationDropdown />}
           </div>

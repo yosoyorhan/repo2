@@ -280,7 +280,7 @@ const HomePage = () => {
           }}
           className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors"
         >
-          <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white rounded-lg p-2 -mt-5 shadow-lg shadow-pink-500/50">
+          <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white rounded-full p-2 -mt-5 shadow-lg shadow-pink-500/50">
             <PlusCircle size={24} />
           </div>
           <span className="text-xs font-medium mt-1.5">Yayın Yap</span>
