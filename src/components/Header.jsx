@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, MessageCircle, Bell, Bookmark, X, LayoutDashboard, ShoppingBag, Settings, LogOut, Package } from 'lucide-react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -29,7 +29,6 @@ const NotificationDropdown = () => (
 const ProfileDrawer = ({ onClose, user, signOut }) => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const location = useLocation();
 
   useEffect(() => {
     if (user) {
@@ -49,17 +48,6 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
     if (!path) return;
     navigate(path);
   };
-
-  // Route değiştiğinde çekmeceyi otomatik kapat (ilk render'da tetikleme)
-  const firstRenderRef = useRef(true);
-  useEffect(() => {
-    if (firstRenderRef.current) {
-      firstRenderRef.current = false;
-      return;
-    }
-    onClose?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search]);
 
   return (
     <>
@@ -154,13 +142,17 @@ const Header = ({ onAuthClick }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        openDropdown === 'notifications' &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setOpenDropdown(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [dropdownRef]);
+  }, [openDropdown]);
 
   const handleFeatureClick = () => {
     toast({ title: "🚧 Bu özellik henüz hazır değil!", description: "Bir sonraki promptunda isteyebilirsin! 🚀" });
