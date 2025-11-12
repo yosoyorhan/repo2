@@ -187,7 +187,7 @@ const Header = ({ onAuthClick }) => {
             </div>
           </div>
           <div ref={dropdownRef} className="flex items-center space-x-3 sm:space-x-5 text-[#4a4475]">
-            <button className="hidden lg:block bg-orange-100 text-orange-600 hover:bg-orange-200 px-4 py-2 rounded-full text-sm font-bold transition-colors" onClick={() => navigate('/streams')}>Yayıncı Ol</button>
+            <button className="hidden lg:block bg-orange-100 text-orange-600 hover:bg-orange-200 px-4 py-2 rounded-full text-sm font-bold transition-colors" onClick={() => user ? navigate('/start-stream') : onAuthClick()}>Yayıncı Ol</button>
             <button className="relative hover:text-pink-500 transition-colors lg:hidden" onClick={handleFeatureClick}><Search size={24} /></button>
             <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><MessageCircle size={24} /></button>
             <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><Bookmark size={24} /></button>

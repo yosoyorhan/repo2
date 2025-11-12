@@ -7,6 +7,7 @@ import LiveStreamPage from '@/pages/LiveStreamPage';
 import HomePage from '@/pages/HomePage';
 import StreamsPage from '@/pages/StreamsPage';
 import ProfilePage from '@/pages/ProfilePage';
+import StartStreamPage from '@/pages/StartStreamPage';
 
 function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -23,7 +24,8 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/streams" element={<StreamsPage />} />
-            <Route path="/live/:streamId" element={<LiveStreamPage />} />
+            <Route path="/start-stream" element={<StartStreamPage />} />
+            <Route path="/stream/:streamId" element={<LiveStreamPage />} />
             <Route path="/profile/:userId" element={<ProfilePage />} />
           </Routes>
         </main>

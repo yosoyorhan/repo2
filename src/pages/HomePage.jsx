@@ -276,7 +276,7 @@ const HomePage = () => {
               toast({ title: 'Giriş yapmalısın!', description: 'Yayın başlatmak için lütfen giriş yap.' });
               return;
             }
-            navigate('/streams');
+            navigate('/start-stream');
           }}
           className="flex flex-col items-center justify-center text-[#4a4475] hover:text-pink-500 transition-colors"
         >

@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 
-const LiveStream = ({ streamId }) => {
+const LiveStream = ({ streamId, initialCollectionId, initialCollectionName }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -68,6 +68,44 @@ const LiveStream = ({ streamId }) => {
   const productChannelRef = useRef(null);
 
   const isPublisher = user && streamData && user.id === streamData.user_id;
+
+  // Initial collection'ı yükle (StartStreamPage'den geldiyse)
+  useEffect(() => {
+    if (initialCollectionId && isPublisher && !selectedCollection) {
+      const loadInitialCollection = async () => {
+        try {
+          const { data: collection, error } = await supabase
+            .from('collections')
+            .select(`
+              *,
+              collection_products(
+                product_id,
+                products(*)
+              )
+            `)
+            .eq('id', initialCollectionId)
+            .single();
+
+          if (error) throw error;
+          
+          if (collection) {
+            setSelectedCollection(collection);
+            const products = collection.collection_products
+              ?.map(cp => cp.products)
+              .filter(Boolean) || [];
+            setCollectionProducts(products);
+            toast({ 
+              title: '✅ Koleksiyon yüklendi', 
+              description: `${collection.name} - ${products.length} ürün hazır` 
+            });
+          }
+        } catch (error) {
+          console.error('Error loading initial collection:', error);
+        }
+      };
+      loadInitialCollection();
+    }
+  }, [initialCollectionId, isPublisher, selectedCollection, toast]);
 
   // Route / sayfa değişiminde yayıncıyı uyarmak için hafif mekanizma
   useEffect(() => {
