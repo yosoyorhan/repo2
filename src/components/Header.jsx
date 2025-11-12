@@ -44,6 +44,13 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
   const displayName = profile?.full_name || profile?.username || user?.email?.split('@')[0] || 'Kullanıcı';
   const avatarInitial = displayName[0]?.toUpperCase() || 'U';
 
+  const go = (path) => {
+    if (!path) return;
+    navigate(path);
+    // küçük bir gecikme ile kapat, animasyon kesilmesin
+    setTimeout(onClose, 0);
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50 animate-fadeIn" onClick={onClose}></div>
@@ -79,38 +86,37 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
                 <p className="text-xs text-[#4a4475] truncate">{user?.email}</p>
               </div>
             </div>
-            <Link 
-              to={`/profile/${user?.id}`} 
-              onClick={onClose} 
+            <button
+              onClick={() => go(`/profile/${user?.id}`)}
               className="block w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white text-center py-2 rounded-lg text-sm font-bold hover:shadow-lg hover:shadow-pink-500/50 transition-all"
             >
               Profili Görüntüle
-            </Link>
+            </button>
           </div>
 
           {/* Menu Items */}
           <div className="flex-1 overflow-y-auto py-2">
-            <Link to={`/profile/${user?.id}?tab=streams`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+            <button onClick={() => go(`/profile/${user?.id}?tab=streams`)} className="w-full text-left px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
               <LayoutDashboard size={20} className="text-purple-500" />
               <span className="font-medium">Yayınlarım</span>
-            </Link>
-            <Link to={`/profile/${user?.id}?tab=collections`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+            </button>
+            <button onClick={() => go(`/profile/${user?.id}?tab=collections`)} className="w-full text-left px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
               <ShoppingBag size={20} className="text-pink-500" />
               <span className="font-medium">Koleksiyonlarım</span>
-            </Link>
-            <Link to={`/profile/${user?.id}?tab=purchased`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+            </button>
+            <button onClick={() => go(`/profile/${user?.id}?tab=purchased`)} className="w-full text-left px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
               <Package size={20} className="text-orange-500" />
               <span className="font-medium">Satın Alımlarım</span>
-            </Link>
-            <Link to={`/profile/${user?.id}?tab=activity`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+            </button>
+            <button onClick={() => go(`/profile/${user?.id}?tab=activity`)} className="w-full text-left px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
               <Bookmark size={20} className="text-purple-500" />
               <span className="font-medium">Aktivite</span>
-            </Link>
+            </button>
             <div className="my-2 border-t border-gray-200"></div>
-            <Link to={`/profile/${user?.id}?tab=about`} onClick={onClose} className="px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
+            <button onClick={() => go(`/profile/${user?.id}?tab=about`)} className="w-full text-left px-5 py-3.5 text-md text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center space-x-3 transition-colors">
               <Settings size={20} className="text-gray-500" />
               <span className="font-medium">Ayarlar</span>
-            </Link>
+            </button>
           </div>
 
           {/* Logout Button */}
