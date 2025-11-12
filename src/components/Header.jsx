@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, MessageCircle, Bell, Bookmark, X, LayoutDashboard, ShoppingBag, Settings, LogOut, Package } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -29,6 +29,7 @@ const NotificationDropdown = () => (
 const ProfileDrawer = ({ onClose, user, signOut }) => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     if (user) {
@@ -47,9 +48,13 @@ const ProfileDrawer = ({ onClose, user, signOut }) => {
   const go = (path) => {
     if (!path) return;
     navigate(path);
-    // küçük bir gecikme ile kapat, animasyon kesilmesin
-    setTimeout(onClose, 0);
   };
+
+  // Route değiştiğinde çekmeceyi otomatik kapat
+  useEffect(() => {
+    onClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
 
   return (
     <>
