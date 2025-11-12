@@ -1,140 +1,138 @@
-import React from 'react';
-import { Search, MessageSquare, Bell, Gift, UserCircle, LogIn, LogOut, Video } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, MessageCircle, Bell, Bookmark, X, LayoutDashboard, ShoppingBag, Settings, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
+const NotificationDropdown = () => (
+  <div className="absolute top-14 right-0 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden animate-fadeInDropdown">
+    <div className="p-4 border-b border-gray-200">
+      <h3 className="font-bold text-lg text-[#1a1333]">Bildirimler</h3>
+    </div>
+    <div className="flex flex-col max-h-96 overflow-y-auto">
+      <a href="#" className="p-4 flex items-center space-x-3 hover:bg-gray-100 transition-colors">
+        <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold flex-shrink-0">K</div>
+        <div>
+          <p className="text-sm text-gray-800"><span className="font-bold">Koleksiyoncu</span> yeni bir yayın başlattı.</p>
+          <span className="text-xs text-gray-500">2 dakika önce</span>
+        </div>
+      </a>
+    </div>
+    <div className="p-3 bg-gray-50 text-center border-t border-gray-200">
+      <a href="#" className="text-sm font-medium text-purple-600 hover:text-pink-500">Tüm bildirimleri gör</a>
+    </div>
+  </div>
+);
+
+const ProfileDrawer = ({ onClose, user, signOut }) => {
+  const navigate = useNavigate();
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50 animate-fadeIn" onClick={onClose}></div>
+      <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white z-50 shadow-xl animate-slideInRight">
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="font-bold text-lg text-[#1a1333]">Profil</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-pink-500 transition-colors"><X size={24} /></button>
+          </div>
+          <div className="p-4 border-b border-gray-200 flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xl border border-pink-200 flex-shrink-0">
+              {user?.email?.[0].toUpperCase() || 'U'}
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1a1333]">{user?.user_metadata?.username || user?.email}</h3>
+              <Link to={`/profile/${user?.id}`} onClick={onClose} className="text-sm text-purple-600 hover:text-pink-500 cursor-pointer font-medium">Profili Görüntüle</Link>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto py-2">
+            <Link to="/streams" onClick={onClose} className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><LayoutDashboard size={18} /><span>Yayıncı Paneli</span></Link>
+            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><ShoppingBag size={18} /><span>Satın Alımlarım</span></a>
+            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><Bookmark size={18} /><span>Kaydedilenler</span></a>
+            <a href="#" className="px-5 py-3 text-md text-gray-700 hover:bg-gray-100 hover:text-purple-600 flex items-center space-x-3"><Settings size={18} /><span>Ayarlar</span></a>
+          </div>
+          <div className="p-4 border-t border-gray-200">
+            <button onClick={() => { signOut(); onClose(); }} className="w-full px-5 py-3 text-md text-red-500 bg-red-50 hover:bg-red-100 font-medium flex items-center space-x-3 rounded-lg transition-colors"><LogOut size={18} /><span>Çıkış Yap</span></button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
 
 const Header = ({ onAuthClick }) => {
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownRef]);
 
   const handleFeatureClick = () => {
-    toast({
-      title: "🚧 Bu özellik henüz hazır değil!",
-      description: "Bir sonraki promptunda isteyebilirsin! 🚀",
-    });
+    toast({ title: "🚧 Bu özellik henüz hazır değil!", description: "Bir sonraki promptunda isteyebilirsin! 🚀" });
   };
 
   return (
-    <header className="h-[72px] bg-cyber-deepPurple/80 backdrop-blur-md border-b border-cyber-border px-6 flex items-center justify-between sticky top-0 z-50 shadow-lg">
-      <div className="flex items-center gap-8">
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-neon-pink to-neon-cyan rounded-lg blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-            <img 
-              src="https://raw.githubusercontent.com/yosoyorhan/repo2/refs/heads/main/src/logocumcum%20(1)-no-bg-HD.png" 
-              alt="Livennervar Logo" 
-              className="w-10 h-10 object-contain relative"
-            />
+    <>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDropdown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .animate-fadeInDropdown { animation: fadeInDropdown 0.2s ease-out; }
+        .animate-slideInRight { animation: slideInRight 0.3s ease-out; }
+      `}</style>
+      <nav className="sticky top-0 z-40 w-full bg-[#fbfaff] border-b-2 border-purple-500 h-20 flex items-center">
+        <div className="flex items-center justify-between w-full max-w-7xl mx-auto px-4 lg:px-6">
+          <div className="flex items-center space-x-8">
+            <Link to="/" className="text-2xl font-bold tracking-tighter">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600">LIVENNER</span>
+              <span className="text-xs ml-2 text-pink-600 font-mono bg-pink-100 px-2 py-1 rounded hidden sm:inline">BETA</span>
+            </Link>
+            <div className="hidden lg:flex items-center space-x-6 text-sm font-medium text-[#4a4475]">
+              <Link to="/" className="bg-purple-100 text-purple-600 px-4 py-2 rounded-lg font-bold">Anasayfa</Link>
+              <Link to="/streams" className="hover:text-pink-500 transition-colors">Keşfet</Link>
+            </div>
           </div>
-          <span className="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-neon-pink to-neon-cyan">
-            LIVENNER
-          </span>
-          <span className="text-xs ml-1 text-neon-cyan font-mono bg-cyber-surface px-2 py-1 rounded">BETA</span>
-        </Link>
-      </div>
-
-      <div className="flex-1 max-w-2xl mx-8">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-neon-cyan transition-colors" />
-          <input
-            type="text"
-            placeholder="Ara..."
-            className="w-full h-11 pl-12 pr-4 bg-cyber-surface border border-cyber-border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-neon-pink focus:shadow-neon-pink transition-all duration-200 font-mono text-sm"
-            onClick={handleFeatureClick}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate('/streams')} 
-          className="w-11 h-11 rounded-lg bg-cyber-surface border border-cyber-border hover:border-neon-cyan text-gray-400 hover:text-neon-cyan transition-all"
-        >
-          <Video className="w-5 h-5" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleFeatureClick} 
-          className="w-11 h-11 rounded-lg bg-cyber-surface border border-cyber-border hover:border-neon-cyan text-gray-400 hover:text-neon-cyan transition-all"
-        >
-          <MessageSquare className="w-5 h-5" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleFeatureClick} 
-          className="w-11 h-11 rounded-lg bg-cyber-surface border border-cyber-border hover:border-neon-cyan text-gray-400 hover:text-neon-cyan transition-all relative"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-neon-pink rounded-full animate-pulse"></span>
-        </Button>
-        
-        {user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="w-11 h-11 rounded-lg bg-gradient-to-r from-neon-pink to-neon-cyan p-[2px] hover:scale-105 transition-all"
-              >
-                <div className="w-full h-full bg-cyber-dark rounded-lg flex items-center justify-center">
-                  <UserCircle className="w-6 h-6 text-white" />
+          <div className="flex-1 px-8 hidden lg:flex justify-center">
+            <div className="relative w-full max-w-lg">
+              <input type="text" placeholder="Livenner'da ara..." className="w-full bg-white border border-gray-300 rounded-lg py-2.5 px-4 pl-10 text-sm placeholder-[#4a4475]/70 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all" onClick={handleFeatureClick} />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a4475]/70" />
+            </div>
+          </div>
+          <div ref={dropdownRef} className="flex items-center space-x-3 sm:space-x-5 text-[#4a4475]">
+            <button className="hidden lg:block bg-orange-100 text-orange-600 hover:bg-orange-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors" onClick={() => navigate('/streams')}>Yayıncı Ol</button>
+            <button className="relative hover:text-pink-500 transition-colors lg:hidden" onClick={handleFeatureClick}><Search size={24} /></button>
+            <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><MessageCircle size={24} /></button>
+            <button className="relative hover:text-pink-500 transition-colors hidden lg:block" onClick={handleFeatureClick}><Bookmark size={24} /></button>
+            <button onClick={() => setOpenDropdown(prev => (prev === 'notifications' ? null : 'notifications'))} className="relative hover:text-pink-500 transition-colors">
+              <Bell size={24} />
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-pink-500 rounded-full border-2 border-[#fbfaff]"></span>
+            </button>
+            {user ? (
+              <button onClick={() => setOpenDropdown(prev => (prev === 'profile' ? null : 'profile'))} className="hover:opacity-80 transition-opacity">
+                <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm border border-pink-200">
+                  {user.email?.[0].toUpperCase() || 'U'}
                 </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
-              className="min-w-[200px] bg-cyber-deepPurple/95 backdrop-blur-xl border border-cyber-border shadow-window rounded-xl p-2"
-            >
-              <DropdownMenuLabel className="text-sm font-mono text-gray-400">{user.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-cyber-border" />
-              <DropdownMenuItem 
-                onClick={() => navigate(`/profile/${user.id}`)} 
-                className="rounded-lg hover:bg-cyber-surface cursor-pointer text-white focus:bg-cyber-surface focus:text-neon-cyan"
-              >
-                <UserCircle className="mr-2 h-4 w-4" />
-                <span>Profilim</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => navigate('/streams')} 
-                className="rounded-lg hover:bg-cyber-surface cursor-pointer text-white focus:bg-cyber-surface focus:text-neon-cyan"
-              >
-                <Video className="mr-2 h-4 w-4" />
-                <span>Yayınlarım</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={signOut} 
-                className="rounded-lg hover:bg-red-500/20 cursor-pointer text-red-400 focus:bg-red-500/20 focus:text-red-300"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Çıkış Yap</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button 
-            onClick={onAuthClick} 
-            className="rounded-lg bg-neon-pink hover:bg-neon-pinkDark text-white shadow-neon-pink hover:shadow-neon-pink-md hover:scale-105 transition-all min-h-[44px] px-5 flex items-center gap-2 font-bold border border-neon-pink/20"
-          >
-            <LogIn size={16}/> Giriş Yap
-          </Button>
-        )}
-      </div>
-    </header>
+              </button>
+            ) : (
+              <Button onClick={onAuthClick} className="rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow hover:shadow-lg transition-all min-h-[44px] px-5 flex items-center gap-2 font-bold">Giriş Yap</Button>
+            )}
+            {openDropdown === 'notifications' && <NotificationDropdown />}
+          </div>
+        </div>
+      </nav>
+      {openDropdown === 'profile' && <ProfileDrawer onClose={() => setOpenDropdown(null)} user={user} signOut={signOut} />}
+    </>
   );
 };
 
