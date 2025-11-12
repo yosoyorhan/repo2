@@ -14,10 +14,10 @@ function App() {
   return (
     <>
       <Helmet>
-        <title>LIVENNER - Cyberpunk Canlı Mezat Platformu</title>
+        <title>LIVENNER - Canlı Mezat Platformu</title>
         <meta name="description" content="Nadir koleksiyonlar, retro oyunlar ve özel ürünleri canlı yayında keşfet. Toplulukla sohbet et, teklif ver ve kazan!" />
       </Helmet>
-      <div className="min-h-screen bg-cyber-dark flex flex-col">
+      <div className="min-h-screen bg-[#fbfaff] flex flex-col">
         <Header onAuthClick={() => setIsAuthModalOpen(true)} />
         <main className="flex-1">
           <Routes>

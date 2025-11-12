@@ -18,21 +18,13 @@ module.exports = {
     },
     extend: {
       colors: {
-        // Cyberpunk/Jules Theme Colors
-        cyber: {
-          dark: '#0f0518',
-          darkPurple: '#130b25',
-          deepPurple: '#1e1235',
-          surface: '#2d1b4e',
-          border: '#ffffff1a',
-          borderLight: '#ffffff0d',
-        },
-        neon: {
-          pink: '#ff0080',
-          pinkDark: '#d6006b',
-          cyan: '#00f0ff',
-          purple: '#7928ca',
-          yellow: '#facc15',
+        // Light Theme Colors (Yeni Tasarım)
+        light: {
+          bg: '#fbfaff',
+          surface: '#fcfbff',
+          text: '#1a1333',
+          muted: '#4a4475',
+          border: '#e5e7eb',
         },
         // Legacy support
         border: 'hsl(var(--border))',
