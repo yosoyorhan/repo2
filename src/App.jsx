@@ -14,10 +14,10 @@ function App() {
   return (
     <>
       <Helmet>
-        <title>Whatnot Clone - Canlı Alışveriş Platformu</title>
-        <meta name="description" content="Canlı yayın alışveriş platformu. Ürünleri keşfedin, canlı yayınları izleyin ve sohbet edin." />
+        <title>LIVENNER - Cyberpunk Canlı Mezat Platformu</title>
+        <meta name="description" content="Nadir koleksiyonlar, retro oyunlar ve özel ürünleri canlı yayında keşfet. Toplulukla sohbet et, teklif ver ve kazan!" />
       </Helmet>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-cyber-dark flex flex-col">
         <Header onAuthClick={() => setIsAuthModalOpen(true)} />
         <main className="flex-1">
           <Routes>

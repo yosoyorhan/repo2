@@ -1,41 +1,71 @@
+/* Import Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root{
-  /* Colors */
-  --bg: #ffffff;
-  --surface: #f6f7f9;
-  --text: #111827;
-  --muted: #6b7280;
+  /* Cyberpunk Dark Theme Colors */
+  --cyber-dark: #0f0518;
+  --cyber-dark-purple: #130b25;
+  --cyber-deep-purple: #1e1235;
+  --cyber-surface: #2d1b4e;
+  --cyber-border: rgba(255, 255, 255, 0.1);
+  --cyber-border-light: rgba(255, 255, 255, 0.05);
+  
+  /* Neon Colors */
+  --neon-pink: #ff0080;
+  --neon-pink-dark: #d6006b;
+  --neon-cyan: #00f0ff;
+  --neon-purple: #7928ca;
+  --neon-yellow: #facc15;
+  
+  /* Legacy Colors (for backward compatibility) */
+  --bg: #0f0518;
+  --surface: #130b25;
+  --text: #ffffff;
+  --muted: #9ca3af;
   --success: #10b981;
   --danger: #ef4444;
   --warning: #facc15;
-  /* Brand gradient */
-  --brand-start: #7b3fe4;
-  --brand-end: #e53dd2;
-  /* Glass */
-  --glass: rgba(255,255,255,0.65);
-  --glass-strong: rgba(255,255,255,0.78);
-  /* Shadows */
-  --shadow-sm: 0 4px 12px rgba(16,24,40,0.06);
-  --shadow-md: 0 8px 30px rgba(16,24,40,0.08);
-  --shadow-lg: 0 20px 50px rgba(16,24,40,0.10);
+  
+  /* Brand gradient - Updated to neon */
+  --brand-start: #ff0080;
+  --brand-end: #00f0ff;
+  
+  /* Glass/Glassmorphism */
+  --glass: rgba(30, 18, 53, 0.65);
+  --glass-strong: rgba(30, 18, 53, 0.85);
+  
+  /* Shadows - Cyberpunk style */
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-neon-pink: 0 0 20px rgba(255, 0, 128, 0.4);
+  --shadow-neon-cyan: 0 0 20px rgba(0, 240, 255, 0.4);
+  
   /* Radius */
   --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 24px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  
   /* Spacing scale */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 40px;
+  
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-  --font-heading: 'SF Pro Display', var(--font-sans);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-heading: 'Inter', var(--font-sans);
   --text-base: 16px;
   --text-sm: 14px;
   --text-xs: 12px;
+  
   /* Motion */
   --ease: cubic-bezier(.2,.9,.3,1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --fast: 160ms;
   --med: 280ms;
   --slow: 400ms;
@@ -51,12 +81,111 @@ body{
   margin:0;
   font-family:var(--font-sans);
   font-size:var(--text-base);
-  background:var(--bg);
+  background:var(--cyber-dark);
   color:var(--text);
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
   line-height:1.5;
+  overflow-x: hidden;
 }
 a{color:inherit;text-decoration:none}
 img{max-width:100%;height:auto;display:block}
 button{font-family:inherit}
+
+/* Cyberpunk Utility Classes */
+@layer utilities {
+  .text-neon-pink {
+    color: var(--neon-pink);
+  }
+  
+  .text-neon-cyan {
+    color: var(--neon-cyan);
+  }
+  
+  .text-gradient-neon {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-neon-pink to-neon-cyan;
+  }
+  
+  .glow-neon-pink {
+    box-shadow: var(--shadow-neon-pink);
+  }
+  
+  .glow-neon-cyan {
+    box-shadow: var(--shadow-neon-cyan);
+  }
+  
+  .glass-cyber {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--cyber-border);
+  }
+  
+  .window-style {
+    @apply bg-cyber-darkPurple border border-cyber-border rounded-2xl overflow-hidden shadow-window;
+  }
+  
+  .window-header {
+    @apply bg-cyber-deepPurple px-4 py-3 flex items-center justify-between border-b border-cyber-borderLight;
+  }
+  
+  .neon-border-hover {
+    @apply transition-all duration-300 border border-cyber-border hover:border-neon-pink/50;
+  }
+  
+  /* Scrollbar Styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--cyber-dark-purple);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--cyber-surface);
+    border-radius: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-pink);
+  }
+}
+
+/* Background Patterns */
+.bg-cyber-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Animations */
+@keyframes pulse-glow-pink {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 0, 128, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 0, 128, 0.7);
+  }
+}
+
+@keyframes pulse-glow-cyan {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.7);
+  }
+}
+
+.animate-pulse-glow-pink {
+  animation: pulse-glow-pink 2s ease-in-out infinite;
+}
+
+.animate-pulse-glow-cyan {
+  animation: pulse-glow-cyan 2s ease-in-out infinite;
+}

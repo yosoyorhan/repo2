@@ -16,7 +16,7 @@ const LiveStreamPage = () => {
 
   return (
     <ErrorBoundary>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] h-[calc(100vh-80px)] max-w-full overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] h-[calc(100vh-80px)] max-w-full overflow-hidden bg-cyber-dark">
         <LiveStream streamId={streamId} />
         <ChatPanel streamId={streamId} />
       </div>

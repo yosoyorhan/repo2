@@ -54,21 +54,21 @@ const AuthModal = ({ isOpen, setIsOpen }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-white rounded-2xl shadow-lg w-[400px] p-8">
-        <DialogTitle className="text-2xl font-bold text-center mb-6 text-gray-800">Hoş Geldin 👋</DialogTitle>
+      <DialogContent className="bg-cyber-deepPurple rounded-2xl shadow-window w-[400px] p-8 border border-cyber-border">
+        <DialogTitle className="text-2xl font-bold text-center mb-6 text-transparent bg-clip-text bg-gradient-to-r from-neon-pink to-neon-cyan">Hoş Geldin 👋</DialogTitle>
         <DialogDescription className="sr-only">
           {isLoginView ? 'Giriş yap veya yeni hesap oluştur' : 'Yeni hesap oluştur'}
         </DialogDescription>
 
-        <div className="flex justify-center mb-6 bg-gray-100 p-1 rounded-full">
+        <div className="flex justify-center mb-6 bg-cyber-dark p-1 rounded-lg border border-cyber-border">
           <button
-            className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-300 ${isLoginView ? 'bg-white shadow' : 'text-gray-500'}`}
+            className={`w-1/2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 font-mono ${isLoginView ? 'bg-cyber-surface text-neon-pink shadow-neon-pink' : 'text-gray-400 hover:text-gray-300'}`}
             onClick={() => setIsLoginView(true)}
           >
             Giriş Yap
           </button>
           <button
-            className={`w-1/2 px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-300 ${!isLoginView ? 'bg-white shadow' : 'text-gray-500'}`}
+            className={`w-1/2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 font-mono ${!isLoginView ? 'bg-cyber-surface text-neon-cyan shadow-neon-cyan' : 'text-gray-400 hover:text-gray-300'}`}
             onClick={() => setIsLoginView(false)}
           >
             Kayıt Ol
@@ -87,35 +87,35 @@ const AuthModal = ({ isOpen, setIsOpen }) => {
               >
               {!isLoginView && (
                   <div className="space-y-2">
-                    <Label htmlFor="username-signup">Kullanıcı Adı</Label>
+                    <Label htmlFor="username-signup" className="text-gray-300 font-mono text-sm">Kullanıcı Adı</Label>
                     <Input
                       id="username-signup"
                       type="text"
                       placeholder="kullanici_adin"
-                      className="w-full border p-2 rounded-lg"
+                      className="w-full"
                       value={form.username}
                       onChange={(e) => setForm({ ...form, username: e.target.value })}
                     />
                   </div>
               )}
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-gray-300 font-mono text-sm">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="ornek@mail.com"
-                    className="w-full border p-2 rounded-lg"
+                    className="w-full"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Parola</Label>
+                  <Label htmlFor="password" className="text-gray-300 font-mono text-sm">Parola</Label>
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
-                    className="w-full border p-2 rounded-lg"
+                    className="w-full"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                   />
@@ -125,7 +125,7 @@ const AuthModal = ({ isOpen, setIsOpen }) => {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#FFDE59] hover:bg-[#FFD700] text-black font-semibold rounded-lg py-2.5 transition-transform hover:scale-105"
+            className="w-full bg-neon-pink hover:bg-neon-pinkDark text-white font-bold rounded-lg py-2.5 transition-transform hover:scale-105 shadow-neon-pink-md"
           >
             {loading ? <Loader2 className="animate-spin" /> : (isLoginView ? 'Giriş Yap' : 'Kayıt Ol')}
           </Button>
