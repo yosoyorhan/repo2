@@ -113,13 +113,6 @@ const LiveStream = ({ streamId, initialCollectionId, initialCollectionName, onPr
       };
       loadInitialCollection();
     }
-  }, [initialCollectionId, isPublisher, selectedCollection, toast]);          }
-        } catch (error) {
-          console.error('Error loading initial collection:', error);
-        }
-      };
-      loadInitialCollection();
-    }
   }, [initialCollectionId, isPublisher, selectedCollection, toast]);
 
   // Route / sayfa değişiminde yayıncıyı uyarmak için hafif mekanizma
