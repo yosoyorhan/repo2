@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, Loader2, Share2, Camera, BadgeCheck, PlusCircle, Package, X, Check } from 'lucide-react';
+import { 
+  User, Calendar, Globe, Twitter, Instagram, Users, Video, Edit, UserPlus, UserMinus, 
+  Loader2, Share2, Camera, BadgeCheck, PlusCircle, Package, X, Check, 
+  Grid, ShoppingBag, Info, Play, Edit3
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -21,6 +25,8 @@ const ProfilePage = () => {
   const [streams, setStreams] = useState([]);
   const [activeStreams, setActiveStreams] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [products, setProducts] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [collections, setCollections] = useState([]);
@@ -45,6 +51,7 @@ const ProfilePage = () => {
     fetchCollections();
     fetchSoldItems();
     fetchPurchasedItems();
+    fetchFollowStats();
     if (user && userId) {
       checkFollowStatus();
     }
@@ -84,6 +91,27 @@ const ProfilePage = () => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', value);
     setSearchParams(newParams, { replace: true });
+  };
+
+  const fetchFollowStats = async () => {
+    try {
+      // Takipçi sayısı
+      const { count: followers } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', userId);
+      
+      // Takip edilen sayısı
+      const { count: following } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', userId);
+      
+      setFollowerCount(followers || 0);
+      setFollowingCount(following || 0);
+    } catch (error) {
+      console.error('Error fetching follow stats:', error);
+    }
   };
 
   const fetchProfile = async () => {
